@@ -1277,8 +1277,8 @@ function proxySample(){
     const system=msgs[0]&&msgs[0].role==='user'?msgs[0].content:'';
     const messages=msgs.slice(1);let text='';let res;
     try{res=await fetch(AI_PROXY,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({system,messages}),signal:opts.signal});}
-    catch(e){throw (e&&e.name==='AbortError')?{code:'cancelled',text}:{code:'upstream_error'};}
-    if(!res.ok){let c='upstream_error';try{const j=await res.json();if(j&&j.error==='rate_limited')c='rate_limited';}catch(_){}throw {code:c};}
+    catch(e){throw (e&&e.name==='AbortError')?{code:'cancelled',text}:{code:'sampling_disabled'};}
+    if(!res.ok){let c='sampling_disabled';try{const j=await res.json();if(j&&j.error==='rate_limited')c='rate_limited';}catch(_){}throw {code:c};}
     const reader=res.body.getReader();const dec=new TextDecoder();let buf='';
     try{
       for(;;){const r=await reader.read();if(r.done)break;buf+=dec.decode(r.value,{stream:true});
