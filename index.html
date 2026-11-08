@@ -1,0 +1,1280 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<meta name="description" content="מערכת מעקב לפרויקט בינה מלאכותית למען עסקים בעוטף · משימת בית Place-IL · אורי טמיר">
+<title>מעקב עסקי העוטף</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=IBM+Plex+Sans+Hebrew:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: a 12-column dashboard grid of cards; boards scroll sideways inside their own track; one side panel per business; the bot floats bottom-left. */
+:root{
+  --bg:#F2F4F7; --surface:#FFFFFF; --surface-2:#E8ECF2; --line:#D5DAE3; --ink:#17202E; --muted:#596274; --faint:#8A92A0;
+  --accent:#264B80; --accent-soft:#E1E8F4; --on-accent:#FFFFFF;
+  --red:#AE3424; --red-soft:#F8E3DF; --amber:#8F5B00; --amber-soft:#FAEFD7; --green:#2A6E42; --green-soft:#DFF0E5;
+  /* chart roles (validated set) */
+  --viz:#2a78d6; --viz-track:#cde2fb; --viz-warn:#fab219; --viz-crit:#d03b3b; --viz-good:#0ca30c; --viz-idle:#A3AAB6;
+  --fn1:#86b6ef; --fn2:#5598e7; --fn3:#2a78d6; --fn4:#1c5cab; --fn5:#104281;
+  /* bot */
+  --bot-shell:#FFFFFF; --bot-edge:#BFC8D7; --bot-body:#2F5A96; --bot-screen:#DCE8FA; --bot-eye:#1E3D6B; --bot-light:#F2A93B; --bot-shadow:#0B1020;
+  --scrim:rgba(16,22,34,.42); --shadow:0 12px 32px rgba(16,22,34,.16); --shadow-s:0 1px 2px rgba(16,22,34,.06);
+  --f-display:"Frank Ruhl Libre","David","Times New Roman",serif;
+  --f-body:"IBM Plex Sans Hebrew","Arial Hebrew","Segoe UI",Arial,sans-serif;
+  --f-data:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0F1217; --surface:#171B22; --surface-2:#1F242E; --line:#2D3340; --ink:#E6E9EF; --muted:#9AA2B1; --faint:#6E7686;
+  --accent:#8EAEE0; --accent-soft:#1E2B42; --on-accent:#0E1420;
+  --red:#F0897A; --red-soft:#3A201C; --amber:#E6B65C; --amber-soft:#382C15; --green:#7FC795; --green-soft:#1A3022;
+  --viz:#3987e5; --viz-track:#1E2B42; --viz-idle:#5A6272;
+  --fn1:#184f95; --fn2:#256abf; --fn3:#3987e5; --fn4:#6da7ec; --fn5:#9ec5f4;
+  --scrim:rgba(0,0,0,.55); --shadow:0 12px 32px rgba(0,0,0,.5); --shadow-s:none; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0F1217; --surface:#171B22; --surface-2:#1F242E; --line:#2D3340; --ink:#E6E9EF; --muted:#9AA2B1; --faint:#6E7686;
+  --accent:#8EAEE0; --accent-soft:#1E2B42; --on-accent:#0E1420;
+  --red:#F0897A; --red-soft:#3A201C; --amber:#E6B65C; --amber-soft:#382C15; --green:#7FC795; --green-soft:#1A3022;
+  --viz:#3987e5; --viz-track:#1E2B42; --viz-idle:#5A6272;
+  --fn1:#184f95; --fn2:#256abf; --fn3:#3987e5; --fn4:#6da7ec; --fn5:#9ec5f4;
+  --scrim:rgba(0,0,0,.55); --shadow:0 12px 32px rgba(0,0,0,.5); --shadow-s:none; color-scheme:dark}
+
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5}
+*{box-sizing:border-box}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.app{max-width:1240px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 120px;display:flex;flex-direction:column;gap:20px}
+.num{font-family:var(--f-data);font-variant-numeric:tabular-nums}
+.date{font-variant-numeric:tabular-nums}
+.sub{font-size:13px;color:var(--muted)}
+.vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* ---------- header ---------- */
+.top{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:14px}
+.eyebrow{font-size:13px;color:var(--muted);letter-spacing:.02em}
+h1{font-family:var(--f-display);font-weight:700;font-size:clamp(24px,3.4vw,32px);line-height:1.15;margin:2px 0 0;text-wrap:balance}
+.asof{font-size:13px;color:var(--muted);margin-top:4px}
+.top-actions{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}
+.role{display:flex;flex-direction:column;gap:5px}
+.role-label{font-size:12px;color:var(--muted)}
+.seg{display:inline-flex;background:var(--surface-2);border-radius:10px;padding:3px;gap:2px;flex-wrap:wrap}
+.seg button{border:0;background:transparent;padding:6px 12px;border-radius:8px;font-size:14px;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);font-weight:600;box-shadow:var(--shadow-s)}
+kbd{font-family:var(--f-data);font-size:11px;border:1px solid currentColor;border-radius:4px;padding:0 4px;opacity:.75;margin-inline-start:6px}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);overflow-x:auto}
+.tab{padding:10px 14px;text-decoration:none;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap;font-weight:500}
+.tab[aria-current="page"]{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+.tab .num{font-size:12px}
+.notice{background:var(--accent-soft);border-radius:10px;padding:10px 14px;font-size:14px}
+
+/* ---------- generic ---------- */
+h2{font-size:15.5px;font-weight:600;margin:0;display:flex;align-items:center;gap:8px}
+h2 .count{font-family:var(--f-data);font-size:12px;color:var(--muted);background:var(--surface-2);border-radius:20px;padding:1px 8px;font-weight:500}
+.section{display:flex;flex-direction:column;gap:10px}
+.section-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0;box-shadow:var(--shadow-s)}
+.card-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
+.card-note{font-size:13px;color:var(--muted)}
+.empty{border:1px dashed var(--line);border-radius:10px;padding:14px;color:var(--muted);font-size:14px;background:var(--surface)}
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;border-radius:20px;padding:2px 10px;white-space:nowrap}
+.pill::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.pill.red{background:var(--red-soft);color:var(--red)}
+.pill.amber{background:var(--amber-soft);color:var(--amber)}
+.pill.green{background:var(--green-soft);color:var(--green)}
+.pill.blue{background:var(--accent-soft);color:var(--accent)}
+.pill.plain{background:var(--surface-2);color:var(--muted)}
+.pill.plain::before{display:none}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:9px;padding:7px 12px;font-size:14px;white-space:nowrap;display:inline-flex;align-items:center;gap:6px}
+.btn:hover:not(:disabled){border-color:var(--accent)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn.primary{background:var(--accent);color:var(--on-accent);border-color:transparent;font-weight:600}
+.btn.small{padding:4px 10px;font-size:13px}
+.btn.ghost{border-color:transparent;background:transparent}
+.btn.ghost:hover:not(:disabled){background:var(--surface-2)}
+.icon-btn{border:1px solid var(--line);background:var(--surface);border-radius:8px;width:28px;height:28px;display:inline-grid;place-items:center;font-size:15px;line-height:1;color:var(--muted)}
+.icon-btn:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+.icon-btn:disabled{opacity:.35;cursor:default}
+.linkish{background:none;border:0;padding:0;color:inherit;font-weight:600;text-align:start}
+.linkish:hover{color:var(--accent);text-decoration:underline}
+.bar{height:8px;background:var(--viz-track);border-radius:4px;overflow:hidden}
+.bar>span{display:block;height:100%;background:var(--viz);border-radius:4px;transition:width .5s ease}
+.flash{animation:flash 1.1s ease-out}
+@keyframes flash{0%{box-shadow:0 0 0 3px var(--viz)}100%{box-shadow:0 0 0 0 transparent}}
+
+/* ---------- dashboard grid ---------- */
+.grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:14px}
+.s3{grid-column:span 3}.s4{grid-column:span 4}.s5{grid-column:span 5}.s6{grid-column:span 6}.s7{grid-column:span 7}.s8{grid-column:span 8}.s12{grid-column:span 12}
+@media (max-width:1000px){.s3{grid-column:span 6}.s4,.s5,.s7,.s8{grid-column:span 12}.s6{grid-column:span 12}.gauge-card.s4{grid-column:span 4}}
+@media (max-width:700px){
+  .gauge-card.s4{grid-column:span 12;flex-direction:row;justify-content:space-between;text-align:start;padding:12px 14px}
+  .gauge-card .g-text{align-items:flex-start}
+  .gauge-card .gauge{width:132px;flex:none}
+  .board.b4,.board.b5{grid-template-columns:minmax(0,1fr);min-width:0}
+  .col{min-height:0}
+  .path{overflow-x:auto;padding-bottom:2px}.path li{min-width:96px}
+  .ai-char svg{width:64px;height:80px}
+  .ai-dock{width:64px}
+}
+@media (max-width:560px){.s3{grid-column:span 6}}
+
+/* gauge */
+.gauge-card{align-items:center;text-align:center;gap:8px}
+.gauge-card .g-text{width:100%;display:flex;flex-direction:column;gap:2px;align-items:center}
+.gauge{width:100%;max-width:240px;height:auto;display:block}
+.gauge.hero{max-width:300px}
+.g-track{fill:none;stroke:var(--viz-track);stroke-width:16;stroke-linecap:round}
+.g-val{fill:none;stroke:var(--viz);stroke-width:16;stroke-linecap:round;transition:stroke-dasharray .7s ease}
+.g-val.warn{stroke:var(--viz-warn)}.g-val.crit{stroke:var(--viz-crit)}
+.g-num{font-family:var(--f-body);font-weight:600;font-size:38px;fill:var(--ink);text-anchor:middle}
+.gauge.hero .g-num{font-size:44px}
+.g-tick{font-family:var(--f-body);font-size:12px;fill:var(--faint);text-anchor:middle}
+.g-sub{font-size:13.5px;color:var(--muted)}
+
+/* funnel & hbars */
+.fn{display:flex;flex-direction:column;gap:10px}
+.fn-row{display:grid;grid-template-columns:minmax(120px,170px) minmax(0,1fr);gap:12px;align-items:center}
+.fn-label b{font-weight:600;font-size:14px;display:block}
+.fn-label .sub{font-size:12.5px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fn-track{display:flex;align-items:center;gap:8px;min-width:0}
+.fn-bar{height:22px;border-radius:0;border-start-end-radius:4px;border-end-end-radius:4px;min-width:3px;transition:width .6s ease}
+.fn-val{font-size:13px;font-weight:600;white-space:nowrap}
+.hb{display:flex;flex-direction:column;gap:10px}
+.hb-row{display:grid;grid-template-columns:minmax(90px,140px) minmax(0,1fr);gap:12px;align-items:center;font-size:14px}
+.hb-row .fn-bar{height:18px;background:var(--viz)}
+
+/* segmented bar */
+.segbar{display:flex;gap:2px;height:28px;border-radius:6px;overflow:hidden;background:var(--surface)}
+.segbar span{display:flex;align-items:center;padding-inline:8px;font-size:12.5px;font-weight:600;border-radius:4px;min-width:6px;white-space:nowrap;overflow:hidden}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13px;color:var(--muted)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-inline-end:6px;vertical-align:-1px}
+
+/* business progress list */
+.bp{display:flex;flex-direction:column}
+.bp-row{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(90px,1fr) auto;gap:14px;align-items:center;padding:10px 4px;border-bottom:1px solid var(--line);background:none;border-inline:0;border-top:0;text-align:start;width:100%}
+.bp-row:last-child{border-bottom:0}
+.bp-row:hover .b-name{color:var(--accent)}
+.bp-prog{display:flex;align-items:center;gap:8px}
+.bp-prog .num{font-size:12px;color:var(--muted);min-width:34px}
+.b-name{font-weight:600}
+
+/* timeline */
+.tl-wrap{overflow-x:auto}
+.tl{display:grid;grid-template-columns:112px repeat(14,minmax(32px,1fr));min-width:560px;font-size:12px}
+.tl>div{border-bottom:1px solid var(--line);min-height:40px;display:flex;align-items:center;justify-content:center;gap:4px;flex-wrap:wrap;padding:4px 2px}
+.tl .tl-name{justify-content:flex-start;padding-inline:4px}
+.tl .tl-day{flex-direction:column;gap:0;color:var(--muted);min-height:44px}
+.tl .tl-day b{font-weight:600;color:var(--ink);font-size:13px}
+.tl .sat{background:repeating-linear-gradient(135deg,transparent 0 6px,var(--surface-2) 6px 8px)}
+.tl .today{box-shadow:inset 0 -2px 0 var(--accent)}
+.tl .tl-day.today b{color:var(--accent)}
+.mk{width:12px;height:12px;border-radius:50%;border:2px solid var(--surface);background:var(--muted);padding:0;box-sizing:content-box}
+.mk.meet{border-radius:2px;transform:rotate(45deg);background:var(--viz);width:11px;height:11px}
+.mk.warn{background:var(--viz-warn)}.mk.crit{background:var(--viz-crit)}
+.mk:hover,.mk:focus-visible{transform:scale(1.25)}.mk.meet:hover,.mk.meet:focus-visible{transform:rotate(45deg) scale(1.25)}
+
+/* flags & feed */
+.flags{display:flex;flex-direction:column;gap:8px}
+.flag{border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center;background:var(--surface)}
+.flag .f-detail .linkish{font-weight:500;color:var(--ink)}
+.flag .f-title{font-weight:600}
+.flag .f-detail{font-size:13.5px;color:var(--muted)}
+.flag .f-who{font-size:12.5px;color:var(--muted);margin-top:2px}.flag .f-who b{color:var(--ink);font-weight:600}
+.flag-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.feed{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.feed li{display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font-size:14px}
+.feed li:last-child{border-bottom:0}
+.feed .dot{width:8px;height:8px;border-radius:50%;background:var(--viz);margin-top:7px}
+details.rules{font-size:14px;color:var(--muted)}
+.owner-name{font-family:var(--f-display);font-size:26px;font-weight:700;display:block;margin:2px 0}
+.help{font-size:13px;color:var(--accent);cursor:help;border-bottom:1px dotted currentColor}
+details.rules summary{color:var(--accent);font-weight:500;cursor:pointer}
+details.rules ul{margin:8px 0 0;padding-inline-start:20px;display:grid;gap:4px}
+details.rules b{color:var(--ink)}
+.tbl-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+table{width:100%;border-collapse:collapse;min-width:640px}
+th,td{text-align:start;padding:10px 12px;border-bottom:1px solid var(--line);font-size:14px;vertical-align:top}
+th{font-size:12.5px;font-weight:600;color:var(--muted);background:var(--surface-2)}
+tr:last-child td{border-bottom:0}
+td.n{font-variant-numeric:tabular-nums}
+
+/* ---------- today ---------- */
+.hello{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
+.hello h2{font-size:22px;font-family:var(--f-display);font-weight:700}
+.quick{display:grid;grid-template-columns:minmax(0,1fr) 180px 150px auto;gap:8px;align-items:end}
+@media (max-width:760px){.quick{grid-template-columns:1fr 1fr}.quick .q-title{grid-column:1/-1}}
+.field{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted);min-width:0}
+.field input,.field select,.field textarea{background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:8px 10px;color:var(--ink);font-size:14px;width:100%}
+.field textarea{min-height:64px;resize:vertical}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--accent);outline:none;box-shadow:0 0 0 3px var(--accent-soft)}
+
+/* ---------- task rows ---------- */
+.trow{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center;border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--surface)}
+.trow.done .t-title{text-decoration:line-through;color:var(--muted)}
+.t-title{font-weight:500;background:none;border:0;padding:0;text-align:start;cursor:pointer}
+.t-title:hover{color:var(--accent)}
+.t-meta{font-size:12.5px;color:var(--muted);display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:2px}
+.t-side{display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+.check{width:18px;height:18px;accent-color:var(--accent);cursor:pointer;flex:none;margin:0}
+.due{font-size:12.5px;white-space:nowrap;border-radius:6px;padding:1px 7px;background:var(--surface-2);color:var(--muted)}
+.due.crit{background:var(--red-soft);color:var(--red);font-weight:600}
+.due.warn{background:var(--amber-soft);color:var(--amber);font-weight:600}
+.due.soon{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.avatar{width:22px;height:22px;border-radius:50%;background:var(--accent-soft);color:var(--accent);font-size:11px;font-weight:700;display:inline-grid;place-items:center;flex:none}
+.auto-tag{font-size:11.5px;color:var(--accent);border:1px solid var(--accent-soft);border-radius:6px;padding:0 6px}
+.bizchip{font-size:12.5px;background:var(--surface-2);border-radius:6px;padding:1px 7px;border:0;color:var(--ink)}
+.bizchip:hover{background:var(--accent-soft)}
+
+/* ---------- boards ---------- */
+.toolbar{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center}
+.filters{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.fbtn{border:1px solid var(--line);background:var(--surface);border-radius:20px;padding:5px 12px;font-size:13.5px}
+.fbtn[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.board-wrap{overflow-x:auto;padding-bottom:6px}
+.board{display:grid;gap:12px}
+.board.b4{grid-template-columns:repeat(4,minmax(240px,1fr));min-width:1000px}
+.board.b5{grid-template-columns:repeat(5,minmax(220px,1fr));min-width:1120px}
+.col{background:var(--surface-2);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:8px;min-height:220px;border:2px dashed transparent;transition:border-color .15s,background .15s}
+.col.over{border-color:var(--viz);background:var(--accent-soft)}
+.col.blocked{border-color:var(--viz-crit)}
+.col-head{display:flex;justify-content:space-between;align-items:center;gap:6px;padding:2px 4px 4px;font-weight:600;font-size:14px}
+.col-head .meta{display:flex;align-items:center;gap:6px;font-weight:500}
+.col-head .num{font-size:12px;color:var(--muted)}
+.kcard{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:11px 12px;display:flex;flex-direction:column;gap:8px;cursor:grab;box-shadow:var(--shadow-s);text-align:start}
+.kcard:hover{border-color:var(--accent)}
+.kcard.dragging{opacity:.45}
+.kcard .k-top{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+.kcard .k-row{font-size:12.5px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;color:var(--muted)}
+.kcard .k-row b{color:var(--ink);font-weight:500}
+.kcard .k-foot{display:flex;justify-content:space-between;align-items:center;gap:6px;border-top:1px solid var(--line);padding-top:8px}
+.kcard .k-move{display:flex;gap:4px}
+.col-add{border:1px dashed var(--line);background:transparent;border-radius:10px;padding:8px;color:var(--muted);font-size:13.5px}
+.col-add:hover{border-color:var(--accent);color:var(--accent)}
+.col-empty{font-size:13px;color:var(--faint);padding:6px 4px}
+
+/* ---------- drawer ---------- */
+.scrim{position:fixed;inset:0;background:var(--scrim);z-index:20}
+.drawer{position:fixed;top:0;bottom:0;inset-inline-end:0;width:min(560px,100%);background:var(--bg);z-index:21;box-shadow:var(--shadow);overflow-y:auto;
+  padding-top:max(18px,env(safe-area-inset-top,0px));padding-bottom:max(24px,env(safe-area-inset-bottom,0px));padding-left:max(18px,env(safe-area-inset-left,0px));padding-right:max(18px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:14px}
+.d-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.d-head h2{font-family:var(--f-display);font-size:25px;font-weight:700;display:block}
+.box{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.box h4{margin:0;font-size:13px;font-weight:600;color:var(--muted)}
+.kv{display:grid;grid-template-columns:110px minmax(0,1fr);gap:6px 12px;font-size:14px;margin:0}
+.kv dt{color:var(--muted)}.kv dd{margin:0}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.toggle{display:flex;gap:8px;align-items:flex-start;font-size:14px;cursor:pointer}
+.toggle .check{margin-top:2px}
+.toggle[aria-disabled="true"]{cursor:default}
+.crit-note{font-size:12.5px;color:var(--muted)}
+.inline-form{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap}
+.inline-form .field{flex:1;min-width:160px}
+.log{display:flex;flex-direction:column;gap:10px;margin:0;padding:0;list-style:none}
+.log li{display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px;font-size:14px}
+.log .date{font-size:12.5px;color:var(--muted);padding-top:2px}
+.copy{font-family:var(--f-data);font-size:13.5px;user-select:all}
+/* Salesforce-style path (chevrons point left: forward in RTL) */
+.path{display:flex;gap:3px;list-style:none;margin:0;padding:0}
+.path li{flex:1;min-width:0}
+.path button{width:100%;border:0;padding:9px 18px 9px 14px;font-size:12.5px;font-weight:600;background:var(--surface-2);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  clip-path:polygon(100% 0,12px 0,0 50%,12px 100%,100% 100%,calc(100% - 12px) 50%)}
+.path li:first-child button{clip-path:polygon(100% 0,12px 0,0 50%,12px 100%,100% 100%);border-start-start-radius:20px;border-end-start-radius:20px}
+.path li:last-child button{clip-path:polygon(100% 0,0 0,0 100%,100% 100%,calc(100% - 12px) 50%);border-start-end-radius:20px;border-end-end-radius:20px}
+.path .past button{background:var(--green-soft);color:var(--green)}
+.path .current button{background:var(--accent);color:var(--on-accent)}
+.path .sel button{box-shadow:inset 0 -3px 0 var(--viz-warn)}
+.guide{background:var(--surface-2);border-radius:10px;padding:10px 12px;font-size:14px}
+.guide b{display:block;font-size:13px;color:var(--muted);margin-bottom:2px}
+.modal{position:fixed;z-index:22;top:50%;left:50%;transform:translate(-50%,-50%);width:min(480px,calc(100% - 32px));max-height:calc(100% - 48px);overflow-y:auto;background:var(--bg);border-radius:14px;box-shadow:var(--shadow);padding:20px;display:flex;flex-direction:column;gap:14px}
+.modal h2{font-size:18px}
+.modal .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+/* ---------- toast ---------- */
+#toast{position:fixed;z-index:30;bottom:calc(18px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none;width:min(520px,calc(100% - 32px))}
+.toast{pointer-events:auto;background:var(--ink);color:var(--bg);border-radius:12px;padding:10px 14px;display:flex;gap:12px;align-items:center;box-shadow:var(--shadow);font-size:14px;max-width:100%}
+.toast.err{background:var(--red);color:#fff}
+.toast button{background:none;border:0;color:inherit;font-weight:700;text-decoration:underline;padding:0;white-space:nowrap}
+#tip{position:fixed;z-index:40;pointer-events:none;background:var(--ink);color:var(--bg);font-size:13px;line-height:1.45;border-radius:8px;padding:7px 10px;max-width:260px;box-shadow:var(--shadow);white-space:pre-line}
+
+/* ---------- bot ---------- */
+.ai-dock{position:fixed;z-index:15;bottom:calc(8px + env(safe-area-inset-bottom,0px));left:max(10px,env(safe-area-inset-left,0px));width:84px;padding-bottom:18px}
+.ai-label{position:absolute;bottom:0;left:50%;transform:translateX(-50%);white-space:nowrap;font-size:12px;font-weight:600;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:1px 9px;box-shadow:var(--shadow-s);pointer-events:none}
+.ai-char{background:none;border:0;padding:0;border-radius:50%;display:block;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
+.ai-dock.dragging .ai-char{cursor:grabbing}
+.ai-dock.dragging .bob{animation-play-state:paused}
+.ai-char svg{display:block;overflow:visible;pointer-events:none}
+#bot-look{transition:transform .12s ease-out}
+.ai-bubble{position:absolute;bottom:calc(100% + 2px);width:max-content;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:10px 12px;max-width:min(250px,70vw);font-size:13.5px;line-height:1.45;display:flex;gap:8px;align-items:flex-start}
+.ai-dock:not(.right) .ai-bubble{left:0;border-bottom-left-radius:4px}
+.ai-dock.right .ai-bubble{right:0;border-bottom-right-radius:4px}
+.ai-bubble b{display:block}
+.ai-bubble .x{background:none;border:0;color:var(--muted);font-size:16px;line-height:1;padding:0 2px}
+.ai-panel{position:fixed;z-index:23;bottom:calc(16px + env(safe-area-inset-bottom,0px));left:max(16px,env(safe-area-inset-left,0px));width:min(420px,calc(100% - 32px));height:min(620px,calc(100% - 40px));background:var(--bg);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);display:flex;flex-direction:column;overflow:hidden}
+.ai-head{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--surface);border-bottom:1px solid var(--line)}
+.ai-head .who{flex:1;min-width:0}
+.ai-head .who b{display:block;font-size:16px}
+.ai-body{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px}
+.msg{max-width:88%;padding:9px 12px;border-radius:12px;font-size:14.5px;line-height:1.55;min-width:0;overflow-wrap:anywhere}
+.msg.user{align-self:flex-start;background:var(--accent);color:var(--on-accent);border-end-start-radius:4px}
+.msg.bot{align-self:flex-end;background:var(--surface);border:1px solid var(--line);border-end-end-radius:4px}
+.msg p{margin:0 0 6px}.msg p:last-child{margin:0}
+.msg ul{margin:4px 0;padding-inline-start:18px}
+.msg .note{font-size:12px;color:var(--muted);margin-top:6px}
+.ai-intro{font-size:14px;color:var(--muted)}
+.ai-chips{display:flex;flex-direction:column;gap:6px}
+.ai-chips button{text-align:start;border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:8px 12px;font-size:14px}
+.ai-chips button:hover{border-color:var(--accent)}
+.ai-form{display:flex;gap:8px;padding:10px;border-top:1px solid var(--line);background:var(--surface)}
+.ai-form textarea{flex:1;min-width:0;resize:none;height:42px;border:1px solid var(--line);border-radius:10px;padding:9px 12px;background:var(--bg);color:var(--ink);font-size:14px}
+.thinking{color:var(--muted);font-size:14px}
+
+footer{font-size:13px;color:var(--muted);display:flex;gap:12px;flex-wrap:wrap;justify-content:space-between;border-top:1px solid var(--line);padding-top:14px}
+footer button{background:none;border:0;color:var(--accent);padding:0;font-size:13px}
+
+@media (max-width:640px){
+  .flag,.trow{grid-template-columns:auto minmax(0,1fr)}
+  .flag-actions,.t-side{grid-column:2;justify-content:flex-start}
+  .kv{grid-template-columns:96px minmax(0,1fr)}
+  .bp-row{grid-template-columns:minmax(0,1fr) auto}.bp-row .bp-prog{grid-column:1/-1;grid-row:2}
+  .path button{padding-inline:14px 10px;font-size:12px}
+  .modal .two{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion: no-preference){
+  .drawer{animation:slide .18s ease-out}@keyframes slide{from{transform:translateX(-24px);opacity:.6}to{transform:none;opacity:1}}
+  .toast{animation:toastin .22s ease-out}@keyframes toastin{from{transform:translateY(8px);opacity:0}to{transform:none;opacity:1}}
+  .ai-char .bob{animation:bob 3.2s ease-in-out infinite}
+  .ai-char .shadow{animation:shadow 3.2s ease-in-out infinite;transform-origin:40px 96px}
+  .ai-char .wave{animation:wave 5s ease-in-out infinite;transform-origin:64px 64px}
+  .ai-char .eyes{animation:blink 4.6s infinite;transform-origin:40px 36px}
+  .ai-char .beacon{animation:beacon 1.8s ease-in-out infinite}
+  .ai-char .jet{animation:jet 1.2s ease-in-out infinite;transform-origin:40px 86px}
+  .ai-char:hover .bob{animation-duration:1.4s}
+  .ai-bubble{animation:pop .35s ease-out}
+  @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+  @keyframes shadow{0%,100%{transform:scale(1);opacity:.28}50%{transform:scale(.78);opacity:.16}}
+  @keyframes wave{0%,58%,100%{transform:rotate(0)}66%{transform:rotate(-28deg)}74%{transform:rotate(8deg)}82%{transform:rotate(-28deg)}90%{transform:rotate(0)}}
+  @keyframes blink{0%,91%,97%,100%{transform:scaleY(1)}94%{transform:scaleY(.1)}}
+  @keyframes beacon{0%,100%{opacity:1}50%{opacity:.35}}
+  @keyframes jet{0%,100%{transform:scaleY(1);opacity:.55}50%{transform:scaleY(.6);opacity:.3}}
+  @keyframes pop{from{transform:translateY(6px) scale(.96);opacity:0}to{transform:none;opacity:1}}
+}
+</style>
+
+<div class="app" dir="rtl" lang="he" id="app"></div>
+<div id="layer" dir="rtl" lang="he"></div>
+<div id="ai" dir="rtl" lang="he"></div>
+<div id="toast" dir="rtl" lang="he" aria-live="polite"></div>
+<div id="tip" dir="rtl" lang="he" hidden></div>
+
+<script>
+(function(){
+const TODAY_ISO='2026-11-08';
+const STORE_KEY='otef-tracker-v7';
+const STAGES=[
+  {id:'scope',label:'הגדרת צורך',guide:'לפגוש את בעל העסק בשטח, להבין איך העבודה נעשית היום ולתעד צורך מרכזי אחד. צורך מוגדר היטב חוסך שידוך לא נכון.'},
+  {id:'matching',label:'שידוך טאלנט',guide:'לראיין לפחות שני מועמדים ולהתאים לפי מומחיות, קרבה גיאוגרפית וזמינות. ההחלטה הסופית אצל סיוון או מעין.'},
+  {id:'kickoff',label:'התנעה',guide:'הבריף יוצא יום לפני הפגישה. בפגישה מגדירים יחד יעד אחד ו-3 אבני דרך, ומסכמים בכתב מה בתחום הפרויקט ומה לא. זה השלב שבו מונעים פערי ציפיות.'},
+  {id:'implementation',label:'הטמעה',guide:'שיחת מעקב שבועית קצרה עם בעל העסק. כל אבן דרך שהושגה מסמנים מיד, כדי שהשותפים יראו התקדמות בזמן אמת.'},
+  {id:'done',label:'סיום ומדידה',guide:'מודדים מול היעד שהוגדר בהתנעה, אוספים משוב מבעל העסק ומהטאלנט, ושולחים סיכום לשותפים.'}
+];
+const CRIT={
+  scope:[{id:'need',t:'הצורך תועד ותואם מול בעל העסק'},{id:'consent',t:'בעל העסק אישר השתתפות ותנאים'}],
+  matching:[{id:'interview',t:'התקיים ראיון עם מועמד/ת'},{id:'decision',t:'התקבלה החלטת צוות על השידוך'},{id:'assigned',t:'שובץ טאלנט',auto:b=>!!b.talentId}],
+  kickoff:[{id:'brief',t:'בריף טכנולוגי נשלח לכל המשתתפים'},{id:'meeting',t:'פגישת ההתנעה התקיימה'},{id:'goals',t:'הוגדרו יעד ואבני דרך, ואושרו',auto:b=>!!b.goal&&!b.goalDraft&&b.milestones.length>0},{id:'align',t:'הציפיות יושרו ואושרו בכתב מול בעל העסק'}],
+  implementation:[{id:'ms',t:'כל אבני הדרך הושגו',auto:b=>b.milestones.length>0&&b.milestones.every(m=>m.done)},{id:'independent',t:'בעל העסק משתמש בפתרון באופן עצמאי'}],
+  done:[{id:'report',t:'סיכום ומדידה נשלחו לשותפים'}]
+};
+const TEMPLATES={
+  matching:[{t:'לקבוע ראיונות עם המועמדים',ot:'coord',off:3,crit:'interview'},{t:'החלטת צוות על השידוך',ot:'team',off:5,crit:'decision',status:'waiting'}],
+  kickoff:[{t:'לקבוע פגישת התנעה',ot:'coord',off:2,tpl:'set-meeting',cond:b=>!(b.meeting&&b.meeting.date)},{t:'בריף טכנולוגי לכל המשתתפים, יום לפני ההתנעה',ot:'talent',rel:'meeting',off:-1,crit:'brief'},{t:'סיכום פגישת ההתנעה לכל הצדדים תוך 24 שעות',ot:'coord',rel:'meeting',off:1},{t:'יישור ציפיות בכתב מול בעל העסק',ot:'coord',rel:'meeting',off:3,crit:'align'}],
+  implementation:[{t:'שיחת מעקב שבועית עם בעל העסק',ot:'coord',off:7},{t:'עדכון התקדמות באבני הדרך',ot:'talent',off:14}],
+  done:[{t:'דוח סיכום ומדידה לשותפים',ot:'coord',off:7,crit:'report'}]
+};
+const TSTATUS=[{id:'todo',label:'לביצוע'},{id:'doing',label:'בתהליך'},{id:'waiting',label:'ממתין לגורם אחר'},{id:'done',label:'בוצע'}];
+const ROLES=[{id:'team',label:'צוות הפרויקט'},{id:'partner',label:'שותף'},{id:'owner',label:'בעל עסק'}];
+const SEED={
+  businesses:[
+    {id:'b1',name:'נגריית הקיבוץ',sub:'',place:'אור הנר',contact:'יוסי כהן',phone:'050-1111111',need:'אוטומציה להצעות מחיר וחיבור ל-WhatsApp',stage:'kickoff',stageSince:'2026-11-08',talentId:'t1',risk:false,riskNote:'',meeting:{date:null,label:'פגישת התנעה',note:'יום ראשון הקרוב'},checks:{},
+goal:'',goalDraft:false,milestones:[],candidates:0},
+    {id:'b2',name:'טבע המדבר',sub:'קוסמטיקה טבעית',place:'כרמיה',contact:'מיכל לוי',phone:'052-2222222',need:'הקמת חנות דיגיטלית וסנכרון מלאי',stage:'matching',stageSince:'2026-11-08',talentId:null,risk:false,riskNote:'',meeting:null,checks:{},goal:'',goalDraft:false,milestones:[],candidates:2},
+    {id:'b3',name:'דפוס אשקלון',sub:'',place:'אשקלון',contact:'משה אברהם',phone:'054-3333333',need:'ניהול הזמנות ומעקב לקוחות (CRM)',stage:'kickoff',stageSince:'2026-11-08',talentId:'t2',risk:true,riskNote:'זוהה פער בתיאום ציפיות מול בעל העסק',meeting:null,checks:{meeting:true},goal:'',goalDraft:false,milestones:[],candidates:0}
+  ],
+  talents:[
+    {id:'t1',name:'דוד אגרונוב',city:'שדרות',skill:'מומחה אוטומציות ו-Python',edu:'בוגר תואר ראשון במדעי המחשב ממכללת ספיר',bizId:'b1',status:'assigned'},
+    {id:'t2',name:'אדירה חיימוביץ׳',city:'לוטן בערבה',skill:'Fullstack ומערכות מידע',edu:'עושה תואר במערכות מידע באוניברסיטה הפתוחה',bizId:'b3',status:'assigned'}
+  ],
+  tasks:[
+    {id:'k1',bizId:'b1',title:'להכין בריף טכנולוגי לקראת המפגש. דוד צריך לשלוח את זה יום לפני לכולם.',owner:'דוד אגרונוב',ownerType:'talent',due:null,dueText:'יום לפני הפגישה',status:'todo',crit:'brief',rel:'meeting',off:-1},
+    {id:'k3',bizId:'b2',title:'לודא שמתבצע ראיון למועמד פוטנציאלי עד מחר ולקבל החלטה מסיוון/מעין בצוות.',owner:'רכז.ת',ownerType:'coord',due:'2026-11-09',status:'todo',crit:['interview','decision']},
+    {id:'k5',bizId:'b3',title:'שיחת שיקוף וליווי מול הטאלנט ובעל העסק',owner:'רכז.ת',ownerType:'coord',due:null,status:'todo',crit:'align'}
+  ],
+  log:[
+    {id:'l1',bizId:'b1',date:'2026-11-08',ts:1,who:'רכז.ת',text:'נקבעה פגישת התנעה ליום ראשון הקרוב.'},
+    {id:'l2',bizId:'b2',date:'2026-11-08',ts:2,who:'רכז.ת',text:'ממתין לשידוך טאלנט מתאים. נבדקת התאמה מול 2 מועמדים.'},
+    {id:'l3',bizId:'b3',date:'2026-11-08',ts:3,who:'רכז.ת',text:'בוצעה פגישת התנעה, זוהה פער בתיאום ציפיות מול בעל העסק.'}
+  ]
+};
+
+/* ================= state ================= */
+const clone=o=>JSON.parse(JSON.stringify(o));
+let S=clone(SEED);
+try{const raw=localStorage.getItem(STORE_KEY);if(raw){const p=JSON.parse(raw);if(p&&p.businesses&&p.tasks&&p.tasks.every(t=>t.status)) S=p;}}catch(e){}
+const UI={role:'team',ownerBiz:'b1',ownerFilter:'all',bizFilter:'all',taskMode:'board',groupBy:null,bizOpen:null,pathSel:null,modal:null,flash:null,drag:null};
+try{const r=localStorage.getItem(STORE_KEY+'-role');if(r==='partner'||r==='owner') UI.role=r;const ob=localStorage.getItem(STORE_KEY+'-obiz');if(ob)UI.ownerBiz=ob;}catch(e){}
+try{const m=localStorage.getItem(STORE_KEY+'-tmode');if(m==='board'||m==='list') UI.taskMode=m;}catch(e){}
+/* ================= cloud sync =================
+   One document per business, task, talent and log entry. Every local change is diffed
+   against the last synced state and only the changed documents are written. */
+const COLS=['businesses','tasks','talents','log'];
+const CLOUD={db:null,mode:'local',canWrite:true,sandbox:false,remote:{businesses:{},tasks:{},talents:{},log:{}},got:{},timer:null,queue:{},pending:false};
+let LAST=null;
+function save(){
+  try{localStorage.setItem(STORE_KEY+'-role',UI.role);localStorage.setItem(STORE_KEY+'-obiz',UI.ownerBiz);localStorage.setItem(STORE_KEY+'-tmode',UI.taskMode);}catch(e){}
+  if(CLOUD.mode==='live'&&CLOUD.canWrite){syncDiff();return}
+  if(CLOUD.mode==='live'){CLOUD.sandbox=true;return}
+  try{localStorage.setItem(STORE_KEY,JSON.stringify(S));}catch(e){}
+}
+function syncDiff(){
+  const prev=LAST||{businesses:[],tasks:[],talents:[],log:[]};
+  COLS.forEach(c=>{
+    const pm=new Map(prev[c].map(x=>[x.id,JSON.stringify(x)]));const nm=new Map(S[c].map(x=>[x.id,x]));
+    nm.forEach((v,id)=>{const js=JSON.stringify(v);if(pm.get(id)!==js) queueWrite(c,id,JSON.parse(js));});
+    pm.forEach((_,id)=>{if(!nm.has(id)) queueWrite(c,id,null);});
+  });
+  LAST=clone(S);
+}
+function queueWrite(c,id,body){
+  const key=c+'/'+id;
+  const run=()=>{const ref=CLOUD.db.collection(c).doc(id);return body?ref.set(body):ref.delete();};
+  CLOUD.queue[key]=(CLOUD.queue[key]||Promise.resolve()).then(run).catch(e=>{
+    if(e&&e.code==='unavailable') return new Promise(r=>setTimeout(r,600+Math.random()*600)).then(run).catch(writeFailed);
+    writeFailed(e);
+  });
+}
+function writeFailed(e){
+  const code=e&&e.code;
+  if(['invalid_argument','not_granted','revoked','capability_disabled','capability_removed'].includes(code)){
+    if(CLOUD.canWrite){CLOUD.canWrite=false;CLOUD.sandbox=true;render();toast('אין לך הרשאה לשמור בענן, אז השינויים שלך נשמרים רק אצלך.',{err:true});}
+  }else if(code==='quota_exceeded') toast('מקום האחסון של המערכת התמלא.',{err:true});
+  else toast('השמירה בענן נכשלה. נסה שוב בעוד רגע.',{err:true});
+}
+const byId=(a,b)=>a.id<b.id?-1:a.id>b.id?1:0;
+function applyRemote(){
+  const r=CLOUD.remote;
+  S={businesses:Object.values(r.businesses).map(clone).sort(byId),tasks:Object.values(r.tasks).map(clone).sort(byId),
+     talents:Object.values(r.talents).map(clone).sort(byId),log:Object.values(r.log).map(clone).sort((a,b)=>(a.ts||0)-(b.ts||0))};
+  LAST=clone(S);
+  renderSafe();
+}
+function renderSafe(){
+  const a=document.activeElement;
+  if(a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)&&a.closest('#app,#layer')&&a.id!=='biz-filter'){CLOUD.pending=true;return}
+  render();
+}
+document.addEventListener('focusout',()=>{if(CLOUD.pending){CLOUD.pending=false;setTimeout(renderSafe,0);}});
+async function initCloud(){
+  if(!(window.claude&&typeof window.claude.use==='function')) return;
+  let db=null;try{db=await window.claude.use('db')}catch(e){}
+  if(!db) return;
+  CLOUD.db=db;CLOUD.mode='loading';render();
+  try{const u=await window.claude.use('user');if(u){const c=await u.can('data.write');if(c===false)CLOUD.canWrite=false;}}catch(e){}
+  CLOUD.timer=setTimeout(()=>{if(CLOUD.mode==='loading'){CLOUD.mode='local';render();toast('אין חיבור לענן כרגע, אז מוצגים נתוני הדוגמה.',{err:true});}},10000);
+  COLS.forEach(c=>{
+    db.collection(c).onSnapshot(snap=>{
+      const m={};snap.docs.forEach(x=>{const v=x.data();if(v)m[x.id]=v;});CLOUD.remote[c]=m;
+      if(!snap.metadata.fromCache) CLOUD.got[c]=true;
+      if(CLOUD.mode==='loading'&&COLS.every(x=>CLOUD.got[x])){clearTimeout(CLOUD.timer);CLOUD.mode='live';UNDO=null;}
+      if(CLOUD.mode==='live'&&!CLOUD.sandbox) applyRemote();
+    },()=>{if(CLOUD.mode==='loading'){clearTimeout(CLOUD.timer);CLOUD.mode='local';render();}});
+  });
+}
+function cloudBadge(){
+  if(CLOUD.mode==='live') return CLOUD.canWrite&&!CLOUD.sandbox?`<span class="pill green" data-tip="כל שינוי נשמר בענן ומופיע מיד אצל כל הצוות">מסונכרן בענן</span>`:`<span class="pill blue" data-tip="הנתונים נטענו מהמערכת. מה שתשנה כאן נשאר רק אצלך">מצב התנסות</span>`;
+  if(CLOUD.mode==='loading') return `<span class="pill plain">מתחבר לענן...</span>`;
+  return `<span class="pill plain" data-tip="השינויים נשמרים בדפדפן הזה בלבד">מצב הדגמה</span>`;
+}
+function footerNote(){
+  if(CLOUD.mode==='live'&&CLOUD.canWrite&&!CLOUD.sandbox) return 'הנתונים נשמרים בענן ומשותפים לכל הצוות בזמן אמת.';
+  if(CLOUD.mode==='live') return 'מצב התנסות: הנתונים נטענו מהמערכת, והשינויים שלך נשמרים רק אצלך.';
+  return 'מצב הדגמה: השינויים נשמרים בדפדפן הזה בלבד.';
+}
+const uid=p=>p+Math.random().toString(36).slice(2,8);
+
+/* ================= dates ================= */
+function d(s){if(!s)return null;const a=s.split('-').map(Number);return new Date(a[0],a[1]-1,a[2])}
+function iso(x){return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0')}
+function addDays(x,n){const y=new Date(x);y.setDate(y.getDate()+n);return y}
+const diff=(a,b)=>Math.round((a-b)/86400000);
+const TODAY=d(TODAY_ISO);
+const WD=['א׳','ב׳','ג׳','ד׳','ה׳','ו׳','שבת'];
+function fmt(s){const x=d(s);if(!x)return 'ללא תאריך';return (x.getDay()===6?'שבת':'יום '+WD[x.getDay()])+' '+x.getDate()+'.'+(x.getMonth()+1)}
+function fmtShort(s){const x=d(s);if(!x)return 'ללא תאריך';const n=diff(x,TODAY);if(n===0)return 'היום';if(n===1)return 'מחר';return (x.getDay()===6?'שבת':WD[x.getDay()])+' '+x.getDate()+'.'+(x.getMonth()+1)}
+function fmtFull(s){const x=d(s);return x.getDate()+'.'+(x.getMonth()+1)+'.'+x.getFullYear()}
+const noShabbat=x=>x.getDay()===6?addDays(x,-1):x;
+function meetText(b,long){if(!b.meeting)return '';const x=b.meeting.date;return x?(long?fmt(x):fmtShort(x)):(b.meeting.note||'ללא תאריך')}
+function dueLabel(t,long){const x=t.due;if(x)return long?fmt(x):fmtShort(x);return t.dueText||'ללא תאריך'}
+const critsOf=t=>[].concat(t.crit||[]);
+
+/* ================= model helpers ================= */
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const biz=id=>S.businesses.find(b=>b.id===id);
+const talent=id=>S.talents.find(t=>t.id===id);
+const task=id=>S.tasks.find(t=>t.id===id);
+const stageIdx=id=>STAGES.findIndex(s=>s.id===id);
+const stageLabel=id=>(STAGES[stageIdx(id)]||{}).label||id;
+const tsLabel=id=>(TSTATUS.find(s=>s.id===id)||{}).label||id;
+const isDone=t=>t.status==='done';
+const canEdit=()=>UI.role==='team';
+const isBizOwner=()=>UI.role==='owner';
+const isPartner=()=>UI.role==='partner';
+const isCoord=()=>false;
+const whoAmI=()=>ROLES.find(r=>r.id===UI.role).label;
+const pct=x=>Math.round(x*100);
+function lastUpdate(bizId){const ds=S.log.filter(l=>l.bizId===bizId).map(l=>l.date).sort();return ds.length?ds[ds.length-1]:null}
+function openTasks(bizId){return S.tasks.filter(t=>!isDone(t)&&(!bizId||t.bizId===bizId))}
+function sortByDue(a,b){if(!a.due&&!b.due)return 0;if(!a.due)return 1;if(!b.due)return -1;return a.due<b.due?-1:a.due>b.due?1:0}
+const nextStep=b=>openTasks(b.id).sort(sortByDue)[0]||null;
+const daysInStage=b=>diff(TODAY,d(b.stageSince));
+const critDone=(b,c)=>c.auto?!!c.auto(b):!!(b.checks&&b.checks[c.id]);
+function critStatus(b){const cl=CRIT[b.stage]||[];const done=cl.filter(c=>critDone(b,c)).length;return {done,total:cl.length,missing:cl.length-done}}
+function bizProgress(b){const cs=critStatus(b);return Math.min(1,(stageIdx(b.stage)+(cs.total?cs.done/cs.total:0))/STAGES.length)}
+const programProgress=()=>S.businesses.length?S.businesses.reduce((a,b)=>a+bizProgress(b),0)/S.businesses.length:0;
+const msDone=b=>b.milestones.filter(m=>m.done).length;
+function addLog(bizId,text){S.log.push({id:uid('l'),bizId,date:TODAY_ISO,ts:Date.now(),who:whoAmI(),text})}
+function ownerName(b,ot){return ot==='coord'?'רכז.ת':ot==='talent'?((talent(b.talentId)||{}).name||'הטאלנט המשובץ'):'צוות Place-IL'}
+const initials=n=>{const w=String(n).replace(/[^֐-׿A-Za-z ]/g,' ').trim().split(/\s+/);return (w[0]||'?').charAt(0)+(w[1]?w[1].charAt(0):'')};
+
+/* ================= rules ================= */
+function computeFlags(){
+  const out=[];
+  for(const t of S.tasks){
+    if(isDone(t)) continue;
+    const mb=biz(t.bizId);const waitsMeeting=t.rel==='meeting'&&mb&&mb.meeting&&!mb.meeting.date;
+    if(!t.due){if(!waitsMeeting) out.push({sev:'amber',kind:'nodate',bizId:t.bizId,taskId:t.id,who:'רכז.ת',title:'משימה בלי תאריך יעד',detail:t.title,action:{label:'לקבוע תאריך',act:'edit-task'}})}
+    else{
+      const dd=diff(d(t.due),TODAY);
+      if(dd<0) out.push({sev:'red',kind:'overdue',bizId:t.bizId,taskId:t.id,who:t.owner,title:'באיחור של '+(-dd)+' ימים',detail:t.title});
+      if(d(t.due).getDay()===6) out.push({sev:'amber',kind:'shabbat',bizId:t.bizId,taskId:t.id,who:'רכז.ת',title:'תאריך היעד נופל בשבת',detail:t.title+' · '+fmt(t.due),action:{label:'להקדים ל'+fmt(iso(addDays(d(t.due),-1))),act:'shift-friday'}});
+    }
+    if(t.status==='waiting') out.push({sev:'amber',kind:'waiting',bizId:t.bizId,taskId:t.id,who:t.owner,title:t.title,detail:'ממתין להחלטה'+(t.due?' עד '+fmt(t.due):'')});
+  }
+  for(const b of S.businesses){
+    if(b.stage==='done') continue;
+    if(b.meeting&&!b.meeting.date) out.push({sev:'amber',kind:'meetnodate',bizId:b.id,who:'רכז.ת',title:b.meeting.label+' בלי תאריך מדויק',detail:'כתוב "'+(b.meeting.note||'')+'". הבריף תלוי בתאריך הזה',action:{label:'לקבוע תאריך',act:'open-biz'}});
+    if(b.risk) out.push({sev:'red',kind:'risk',bizId:b.id,who:'מנהלת הפרויקט',title:'עסק בסיכון',detail:b.riskNote||'סומן בסיכון'});
+    const lu=lastUpdate(b.id);const gap=lu?diff(TODAY,d(lu)):99;
+    if(gap>7) out.push({sev:'amber',kind:'stale',bizId:b.id,who:'רכז.ת',title:'שקט: אין עדכון '+(lu?gap+' ימים':'כלל'),detail:'כדאי לבדוק מה קורה בעסק'});
+    const ds=daysInStage(b);
+    if(ds>14) out.push({sev:'amber',kind:'stuck',bizId:b.id,who:'רכז.ת',title:'תקוע בשלב '+stageLabel(b.stage)+' '+ds+' ימים',detail:'חסרים '+critStatus(b).missing+' תנאים למעבר שלב'});
+    if(!openTasks(b.id).length) out.push({sev:'amber',kind:'nonext',bizId:b.id,who:'רכז.ת',title:'אין צעד הבא',detail:'לעסק אין משימה פתוחה',action:{label:'הוספת משימה',act:'new-task'}});
+  }
+  return out.sort((a,b)=>(a.sev==='red'?0:1)-(b.sev==='red'?0:1));
+}
+function health(bizId,flags){
+  const f=flags.filter(x=>x.bizId===bizId);const P=isPartner();
+  if(f.some(x=>x.sev==='red')) return {cls:'red',label:P?'בליווי צמוד':'בסיכון'};
+  if(f.length) return {cls:'amber',label:P?'במעקב':'לתשומת לב'};
+  return {cls:'green',label:P?'במסלול':'תקין'};
+}
+const decisionFlags=flags=>flags.filter(f=>f.sev==='red'||f.kind==='waiting');
+function taskSev(t,flags){if(isDone(t))return '';if(!t.due)return 'warn';const dd=diff(d(t.due),TODAY);if(dd<0)return 'crit';if(flags.some(f=>f.taskId===t.id))return 'warn';if(dd<=1)return 'soon';return ''}
+
+/* ================= automation ================= */
+function applyTemplates(b){
+  let n=0;
+  for(const tp of (TEMPLATES[b.stage]||[])){
+    if(tp.cond&&!tp.cond(b)) continue;
+    let base=tp.rel==='meeting'?(b.meeting&&b.meeting.date?d(b.meeting.date):addDays(TODAY,7)):TODAY;
+    let due=addDays(base,tp.off);if(due<TODAY) due=TODAY;due=noShabbat(due);
+    S.tasks.push({id:uid('k'),bizId:b.id,title:tp.t,owner:ownerName(b,tp.ot),ownerType:tp.ot,due:iso(due),status:tp.status||'todo',crit:tp.crit||null,tpl:tp.tpl||null,rel:tp.rel||null,off:tp.off,auto:true});
+    n++;
+  }
+  return n;
+}
+function setTaskStatus(t,st){
+  const prev=t.status;if(prev===st) return;
+  t.status=st;const b=biz(t.bizId);
+  if(b)critsOf(t).forEach(c=>{b.checks[c]=st==='done'});
+  addLog(t.bizId,(st==='done'?'בוצע: ':'סטטוס "'+tsLabel(st)+'": ')+t.title);
+}
+const NEXT_T={todo:'doing',doing:'done',waiting:'done'};
+const PREV_T={doing:'todo',waiting:'todo',done:'doing'};
+
+/* ================= undo + toast + fx ================= */
+let UNDO=null,toastTimer=null;
+function commit(label,fn,opts){
+  const snap=clone(S);
+  const r=fn();
+  if(r===false) return;
+  UNDO={snap};
+  save();render();
+  toast(label,{undo:!(opts&&opts.noUndo)});
+}
+function toast(msg,opts){
+  const box=document.getElementById('toast');
+  const err=opts&&opts.err;
+  box.innerHTML=`<div class="toast ${err?'err':''}" role="status"><span>${esc(msg)}</span>${opts&&opts.undo&&UNDO?'<button type="button" data-ui="undo">ביטול</button>':''}${opts&&opts.open?`<button type="button" data-ui="open-biz" data-id="${opts.open}">לכרטיס העסק</button>`:''}</div>`;
+  clearTimeout(toastTimer);toastTimer=setTimeout(()=>{box.innerHTML=''},err?6500:5000);
+}
+function confetti(){
+  if(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const c=document.createElement('canvas');c.style.cssText='position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:50';
+  document.body.appendChild(c);const ctx=c.getContext('2d');const W=c.width=innerWidth,H=c.height=innerHeight;
+  const cols=getComputedStyle(document.documentElement);const pal=['--viz','--viz-warn','--viz-good','--fn1','--viz-crit'].map(v=>cols.getPropertyValue(v).trim()||'#2a78d6');
+  const P=[...Array(90)].map(()=>({x:W/2+(Math.random()-.5)*120,y:H*0.45,vx:(Math.random()-.5)*10,vy:-Math.random()*11-4,s:4+Math.random()*5,r:Math.random()*6,vr:(Math.random()-.5)*.3,c:pal[Math.floor(Math.random()*pal.length)]}));
+  let t0=performance.now();
+  (function step(t){const k=(t-t0)/1000;ctx.clearRect(0,0,W,H);
+    P.forEach(p=>{p.vy+=.35;p.x+=p.vx;p.y+=p.vy;p.r+=p.vr;ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.r);ctx.globalAlpha=Math.max(0,1-k/1.6);ctx.fillStyle=p.c;ctx.fillRect(-p.s/2,-p.s/2,p.s,p.s*.6);ctx.restore();});
+    if(k<1.6) requestAnimationFrame(step); else c.remove();})(t0);
+}
+
+/* ================= views & routing ================= */
+function views(){
+  if(isBizOwner()) return [{id:'mine',label:'העסק שלי'}];
+  return [
+    {id:'dashboard',label:'דשבורד'},
+    {id:'pipeline',label:'צינור עסקים'},
+    !isPartner()&&{id:'tasks',label:'משימות',count:openTasks().length},
+  ].filter(Boolean);
+}
+function currentView(){
+  let v=(location.hash||'').replace('#','');
+  const vs=views();
+  if(!vs.some(x=>x.id===v)) v=vs[0].id;
+  return v;
+}
+
+/* ================= shell ================= */
+function render(){
+  const flags=computeFlags();
+  const view=currentView();
+  const app=document.getElementById('app');
+  app.innerHTML=`
+    <header class="top">
+      <div>
+        <div class="eyebrow">Place-IL · משרד העבודה · תקומה</div>
+        <h1>בינה מלאכותית למען עסקים בעוטף</h1>
+        <div class="asof row" style="gap:10px"><span>תמונת מצב ל<span class="date">יום ${WD[TODAY.getDay()]}, ${fmtFull(TODAY_ISO)}</span></span>${cloudBadge()}</div>
+      </div>
+      <div class="top-actions">
+        ${canEdit()?`<button type="button" class="btn primary" data-act="new-task" title="קיצור מקלדת: N">+ משימה חדשה</button>`:''}
+        <div class="role"><span class="role-label" id="role-lbl">מציג כ:</span>
+          <div class="row" style="gap:8px"><div class="seg" role="group" aria-labelledby="role-lbl">${ROLES.map(r=>`<button type="button" data-act="role" data-id="${r.id}" aria-pressed="${UI.role===r.id}">${r.label}</button>`).join('')}</div>
+          ${isBizOwner()?`<label class="vh" for="owner-biz">איזה עסק</label><select id="owner-biz" data-ui="owner-biz" class="btn" style="padding:6px 10px">${S.businesses.map(b=>`<option value="${b.id}" ${UI.ownerBiz===b.id?'selected':''}>${esc(b.name)}</option>`).join('')}</select>`:''}</div></div>
+      </div>
+    </header>
+    <nav class="tabs" aria-label="תצוגות">${views().map(v=>`<a class="tab" href="#${v.id}" ${view===v.id?'aria-current="page"':''}>${v.label}${v.count!=null?` <span class="num">${v.count}</span>`:''}</a>`).join('')}</nav>
+    ${isPartner()?`<div class="notice">תצוגת שותף (משרד העבודה, תקומה): התקדמות, שלבים, יעדים ואבני דרך. פרטי קשר, משימות פנימיות והערות הצוות לא מוצגים.</div>`:''}
+    ${isBizOwner()?`<div class="notice">תצוגת בעל עסק: רק העסק שלו, בשפה פשוטה. בלי עסקים אחרים, משימות פנימיות או הערות הצוות.</div>`:''}
+    <main class="section" style="gap:18px">${
+      view==='mine'?renderOwner():view==='pipeline'?renderPipeline(flags):view==='tasks'?renderTasks(flags):renderDashboard(flags)}</main>
+    <footer><span>${footerNote()}</span>${canEdit()&&!(CLOUD.mode==='live'&&CLOUD.canWrite&&!CLOUD.sandbox)?`<button type="button" data-act="reset">${CLOUD.mode==='live'?'חזרה לנתוני המערכת':'איפוס לנתוני הדוגמה'}</button>`:''}</footer>`;
+  renderLayer(flags);
+  if(UI.flash){document.querySelectorAll(`[data-flash="${UI.flash}"]`).forEach(el=>el.classList.add('flash'));UI.flash=null;}
+}
+
+/* ================= chart components ================= */
+function gauge(v,opts){
+  opts=opts||{};v=Math.max(0,Math.min(1,v));const L=Math.PI*80;
+  return `<svg class="gauge ${opts.hero?'hero':''}" viewBox="0 0 200 122" role="img" aria-label="${opts.label||''} ${pct(v)}%">
+    <path class="g-track" d="M180 100 A80 80 0 0 0 20 100"/>
+    ${v>0?`<path class="g-val ${opts.sev||''}" d="M180 100 A80 80 0 0 0 20 100" stroke-dasharray="${(L*v).toFixed(1)} ${(L+20).toFixed(1)}"/>`:''}
+    <text class="g-num" x="100" y="94">${pct(v)}%</text>
+    <text class="g-tick" x="180" y="120">0</text><text class="g-tick" x="20" y="120">100</text>
+  </svg>`;
+}
+function gaugeCard(cls,title,v,sub,opts){
+  return `<section class="card gauge-card ${cls}" data-tip="${esc(title)}: ${pct(v)}%&#10;${esc(sub)}"><div class="g-text"><h2>${title}</h2><div class="g-sub">${sub}</div></div>${gauge(v,Object.assign({label:title},opts))}</section>`;
+}
+function funnel(cls){
+  const n=S.businesses.length||1;
+  const rows=STAGES.map((s,i)=>({s,i,reached:S.businesses.filter(b=>stageIdx(b.stage)>=i).length,now:S.businesses.filter(b=>b.stage===s.id)}));
+  const kick=rows[2].reached,impl=rows[3].reached;
+  return `<section class="card ${cls}"><div class="card-head"><h2>משפך שלבים</h2><span class="card-note">כמה עסקים הגיעו לכל שלב</span></div>
+    <div class="fn">${rows.map(r=>`<div class="fn-row" data-tip="${r.s.label}: ${r.reached} מתוך ${S.businesses.length} הגיעו לשלב&#10;${r.now.length?'כרגע בשלב: '+esc(r.now.map(b=>b.name).join(', ')):'אין עסקים בשלב כרגע'}" tabindex="0">
+      <div class="fn-label"><b>${r.i+1}. ${r.s.label}</b><span class="sub">${r.now.length?r.now.map(b=>esc(b.name)).join(', '):'–'}</span></div>
+      <div class="fn-track"><span class="fn-bar" style="width:${Math.max(r.reached/n*100,0.6)}%;background:var(--fn${r.i+1})"></span><span class="fn-val">${r.reached}</span></div></div>`).join('')}</div>
+    <div class="card-note">${pct(kick/n)}% מהעסקים כבר הגיעו להתנעה. ${impl?impl+' עסקים בהטמעה ומעלה.':'אף עסק עוד לא הגיע להטמעה.'}</div></section>`;
+}
+function bizProgressCard(flags,cls){
+  return `<section class="card ${cls}"><div class="card-head"><h2>התקדמות לפי עסק</h2><span class="card-note">לחיצה פותחת את העסק</span></div>
+    <div class="bp">${S.businesses.slice().sort((a,b)=>bizProgress(b)-bizProgress(a)).map(b=>{const h=health(b.id,flags);const cs=critStatus(b);return `
+      <button type="button" class="bp-row" data-act="open-biz" data-id="${b.id}" data-tip="${esc(b.name)} · ${stageLabel(b.stage)}&#10;התקדמות ${pct(bizProgress(b))}% · תנאי מעבר ${cs.done}/${cs.total}">
+        <span><span class="b-name">${esc(b.name)}</span><br><span class="sub">${stageLabel(b.stage)} · ${esc(b.place)}</span></span>
+        <span class="bp-prog"><span class="bar" style="flex:1"><span style="width:${pct(bizProgress(b))}%"></span></span><span class="num">${pct(bizProgress(b))}%</span></span>
+        <span class="pill ${h.cls}">${h.label}</span></button>`}).join('')}</div></section>`;
+}
+function timeline(cls,partner){
+  const days=[...Array(14)].map((_,i)=>addDays(TODAY,i));
+  const flags=computeFlags();
+  const undated=partner?0:openTasks().filter(t=>!t.due).length;
+  let cells=`<div class="tl-name"><span class="sub">עסק</span></div>`+days.map((x,i)=>`<div class="tl-day ${x.getDay()===6?'sat':''} ${i===0?'today':''}"><span>${x.getDay()===6?'שבת':WD[x.getDay()]}</span><b>${x.getDate()}.${x.getMonth()+1}</b></div>`).join('');
+  for(const b of S.businesses){
+    cells+=`<div class="tl-name"><button type="button" class="linkish" data-act="open-biz" data-id="${b.id}">${esc(b.name)}</button></div>`;
+    days.forEach((x,i)=>{
+      const k=iso(x);let mk='';
+      if(b.meeting&&b.meeting.date===k) mk+=`<button type="button" class="mk meet" data-act="open-biz" data-id="${b.id}" data-tip="${esc(b.meeting.label)} · ${fmt(k)}&#10;${esc(b.name)}" aria-label="${esc(b.meeting.label)} ${fmt(k)}"></button>`;
+      if(!partner){
+        const ts=openTasks(b.id).filter(t=>t.due&&(t.due===k||(i===0&&t.due<k)));
+        ts.forEach(t=>{const sv=taskSev(t,flags);mk+=`<button type="button" class="mk ${sv==='crit'?'crit':sv==='warn'?'warn':''}" data-act="edit-task" data-id="${t.id}" data-tip="${fmt(t.due)}${sv==='crit'?' · באיחור':''}&#10;${esc(t.title)}&#10;${esc(t.owner)}" aria-label="${esc(t.title)} ${fmt(t.due)}"></button>`});
+      }
+      cells+=`<div class="${x.getDay()===6?'sat':''} ${i===0?'today':''}">${mk}</div>`;
+    });
+  }
+  return `<section class="card ${cls}"><div class="card-head"><h2>לוח זמנים לשבועיים</h2><span class="card-note">${partner?'פגישות לפי עסק':'פגישות ומועדי משימות לפי עסק'}</span></div>
+    <div class="tl-wrap"><div class="tl">${cells}</div></div>
+    <div class="legend"><span><i style="background:var(--viz);transform:rotate(45deg);border-radius:2px"></i>פגישה</span>${partner?'':`<span><i style="background:var(--muted);border-radius:50%"></i>מועד משימה</span><span><i style="background:var(--viz-warn);border-radius:50%"></i>דורש תשומת לב</span><span><i style="background:var(--viz-crit);border-radius:50%"></i>באיחור</span>`}<span><i style="background:repeating-linear-gradient(135deg,transparent 0 3px,var(--line) 3px 5px)"></i>שבת</span>${undated?`<span>· ${undated} משימות בלי תאריך לא מופיעות</span>`:''}</div></section>`;
+}
+function workload(cls){
+  const owners={};openTasks().forEach(t=>{owners[t.owner]=(owners[t.owner]||0)+1});
+  const rows=Object.entries(owners).sort((a,b)=>b[1]-a[1]);const max=Math.max(1,...rows.map(r=>r[1]));
+  return `<section class="card ${cls}"><div class="card-head"><h2>עומס לפי אחראי</h2><span class="card-note">משימות פתוחות</span></div>
+    ${rows.length?`<div class="hb">${rows.map(([o,n])=>`<div class="hb-row" data-tip="${esc(o)}: ${n} משימות פתוחות" tabindex="0"><span>${esc(o)}</span><span class="fn-track"><span class="fn-bar" style="width:${n/max*100}%"></span><span class="fn-val">${n}</span></span></div>`).join('')}</div>`:'<div class="empty">אין משימות פתוחות.</div>'}
+  </section>`;
+}
+function statusMix(cls){
+  const parts=[{id:'todo',c:'var(--viz-idle)',ink:'#0b0b0b'},{id:'doing',c:'var(--viz)',ink:'#fff'},{id:'waiting',c:'var(--viz-warn)',ink:'#0b0b0b'},{id:'done',c:'var(--viz-good)',ink:'#fff'}]
+    .map(p=>Object.assign(p,{n:S.tasks.filter(t=>t.status===p.id).length,label:tsLabel(p.id)}));
+  const tot=S.tasks.length||1;
+  return `<section class="card ${cls}"><div class="card-head"><h2>משימות לפי סטטוס</h2><span class="card-note">${S.tasks.length} משימות בסך הכול</span></div>
+    <div class="segbar" role="img" aria-label="${parts.map(p=>p.label+' '+p.n).join(', ')}">${parts.filter(p=>p.n).map(p=>`<span style="flex:${p.n};background:${p.c};color:${p.ink}" data-tip="${p.label}: ${p.n} (${pct(p.n/tot)}%)">${p.n/tot>=.14?pct(p.n/tot)+'%':''}</span>`).join('')}</div>
+    <div class="legend">${parts.map(p=>`<span><i style="background:${p.c}"></i>${p.label}</span>`).join('')}</div></section>`;
+}
+function flagsList(list,empty){
+  return list.length?`<div class="flags">${list.map(renderFlag).join('')}</div>`:`<div class="empty">${empty}</div>`;
+}
+function renderFlag(f){
+  const b=biz(f.bizId);
+  const action=f.action&&canEdit()?`<button type="button" class="btn small primary" data-act="${f.action.act}" data-id="${f.action.act==='new-task'?f.bizId:(f.taskId||f.bizId)}">${f.action.label}</button>`:'';
+  return `<div class="flag"><span class="pill ${f.sev}">${f.sev==='red'?'דחוף':'לתשומת לב'}</span>
+    <div><div class="f-title">${esc(f.title)}</div>
+      <div class="f-detail"><button type="button" class="linkish" data-act="open-biz" data-id="${f.bizId}">${esc(b?b.name:'')}</button> · ${esc(f.detail)}</div>
+      ${f.who?`<div class="f-who">באחריות: <b>${esc(f.who)}</b></div>`:''}</div>
+    ${action?`<div class="flag-actions">${action}</div>`:''}</div>`;
+}
+function rulesDetails(){
+  return `<details class="rules"><summary>איך המערכת מסמנת דגלים</summary><ul>
+    <li><b>באיחור:</b> משימה פתוחה שתאריך היעד שלה עבר.</li><li><b>שבת:</b> תאריך יעד בשבת, עם הצעה להקדים לשישי.</li>
+    <li><b>ללא תאריך:</b> משימה פתוחה בלי תאריך יעד.</li><li><b>ממתין להחלטה:</b> משימה שתלויה בגורם מחוץ לצוות.</li>
+    <li><b>בסיכון:</b> עסק שסומן בסיכון, עם הסבר.</li><li><b>שקט:</b> אין עדכון ביומן יותר משבוע.</li>
+    <li><b>תקוע:</b> אותו שלב יותר משבועיים.</li><li><b>אין צעד הבא:</b> עסק פעיל בלי משימה פתוחה.</li></ul></details>`;
+}
+
+/* ================= dashboard ================= */
+const RULES_TIP='המערכת מסמנת לבד:&#10;• משימה באיחור&#10;• תאריך יעד בשבת&#10;• משימה בלי תאריך&#10;• החלטה שממתינה לגורם אחר&#10;• עסק בסיכון&#10;• שבוע בלי עדכון ביומן&#10;• יותר משבועיים באותו שלב&#10;• עסק בלי צעד הבא&#10;• פגישה בלי תאריך מדויק';
+function renderDashboard(flags){
+  const P=isPartner();const total=S.businesses.length;
+  const matched=S.businesses.filter(b=>b.talentId).length;
+  const open=openTasks();const onTime=open.filter(t=>!t.due||diff(d(t.due),TODAY)>=0).length;
+  const doneN=S.tasks.filter(isDone).length,late=open.length-onTime;
+  const kick=S.businesses.filter(b=>stageIdx(b.stage)>stageIdx('kickoff')||(b.stage==='kickoff'&&b.checks.meeting)).length;
+  const list=flags;
+  return `<div class="grid">
+    ${gaugeCard('s4','התקדמות התוכנית',programProgress(),'לפי השלב ותנאי המעבר של כל עסק',{hero:true})}
+    ${gaugeCard('s4','שיעור שידוך',total?matched/total:0,matched+' מתוך '+total+' עסקים שודכו לטאלנט')}
+    ${P?gaugeCard('s4','התנעות שבוצעו',total?kick/total:0,kick+' מתוך '+total+' עסקים')
+       :gaugeCard('s4','משימות שהושלמו',S.tasks.length?doneN/S.tasks.length:0,doneN+' מתוך '+S.tasks.length+' משימות'+(late?' · '+late+' באיחור':' · אף משימה לא באיחור'),{sev:late?'warn':''})}
+    ${P?'':`<section class="card s7"><div class="card-head"><h2>דורש תשומת לב <span class="count">${list.length}</span></h2><span class="help" tabindex="0" data-tip="${RULES_TIP}">איך זה עובד?</span></div>
+      ${flagsList(list,'הכול בזמן. אין כרגע מה לטפל בו.')}</section>`}
+    ${bizProgressCard(flags,P?'s7':'s5')}
+    ${funnel('s5')}
+    ${timeline(P?'s12':'s7',P)}
+    <section class="s12"><details class="rules"><summary>הצגת הנתונים כטבלה</summary>
+      <div class="tbl-wrap" style="margin-top:8px"><table><thead><tr><th>עסק</th><th>שלב</th><th>התקדמות</th><th>תנאי מעבר</th>${P?'':'<th>משימות פתוחות</th>'}<th>מצב</th></tr></thead><tbody>
+      ${S.businesses.map(b=>{const cs=critStatus(b);return `<tr><td>${esc(b.name)}</td><td>${stageLabel(b.stage)}</td><td class="n">${pct(bizProgress(b))}%</td><td class="n">${cs.done}/${cs.total}</td>${P?'':`<td class="n">${openTasks(b.id).length}</td>`}<td>${health(b.id,flags).label}</td></tr>`}).join('')}
+      </tbody></table></div></details></section>
+  </div>`;
+}
+
+function taskRow(t,flags){
+  const b=biz(t.bizId);const sv=taskSev(t,flags);const nx=NEXT_T[t.status];
+  return `<div class="trow ${isDone(t)?'done':''}" data-flash="${t.id}">
+    <input type="checkbox" class="check" data-act="toggle-task" data-id="${t.id}" ${isDone(t)?'checked':''} ${canEdit()?'':'disabled'} aria-label="סימון כבוצע: ${esc(t.title)}">
+    <div style="min-width:0"><button type="button" class="t-title" data-act="edit-task" data-id="${t.id}">${esc(t.title)}</button>
+      <div class="t-meta"><button type="button" class="bizchip" data-act="open-biz" data-id="${t.bizId}">${esc(b?b.name:'')}</button><span class="avatar" title="${esc(t.owner)}">${esc(initials(t.owner))}</span><span>${esc(t.owner)}</span>${t.auto?'<span class="auto-tag">אוטומטית</span>':''}</div></div>
+    <div class="t-side"><span class="pill plain">${tsLabel(t.status)}</span><span class="due ${sv}">${esc(dueLabel(t))}</span>
+      ${canEdit()&&nx?`<button type="button" class="btn small" data-act="task-next" data-id="${t.id}" title="העברה ל${tsLabel(nx)}">${tsLabel(nx)} ←</button>`:''}</div></div>`;
+}
+
+/* ================= business owner ================= */
+const OWNER_STAGE={scope:'מבינים יחד את הצורך של העסק ומתעדים אותו.',matching:'מחפשים טאלנט טכנולוגי שמתאים בדיוק לצורך שלכם.',kickoff:'נפגשים יחד, מגדירים יעד ואבני דרך, ומסכמים מה בדיוק נעשה.',implementation:'הטאלנט מטמיע את הפתרון בעסק, צעד אחר צעד.',done:'מודדים את התוצאה מול היעד ומסכמים יחד.'};
+function ownerBiz(){return biz(UI.ownerBiz)||S.businesses[0]}
+function renderOwner(){
+  const b=ownerBiz();if(!b) return '<div class="empty">אין עדיין עסקים במערכת.</div>';
+  const i=stageIdx(b.stage);const t=talent(b.talentId);const showGoal=b.goal&&!b.goalDraft;
+  return `<div class="grid">
+    <section class="card s12"><div class="section-head"><div><div class="eyebrow">העסק שלכם בתוכנית</div><span class="owner-name">${esc(b.name)}</span><div class="sub">${esc(b.place)} · ${esc(b.need)}</div></div><span class="pill blue">שלב ${i+1} מתוך ${STAGES.length}</span></div>
+      <ol class="path" aria-label="שלבי התוכנית">${STAGES.map((s,k)=>`<li class="${k<i?'past':k===i?'current':''}"><button type="button" tabindex="-1" ${k===i?'aria-current="step"':''}>${k<i?'✓ ':''}${s.label}</button></li>`).join('')}</ol>
+      <div class="guide"><b>מה קורה עכשיו · ${stageLabel(b.stage)}</b>${OWNER_STAGE[b.stage]}</div></section>
+    ${gaugeCard('s4','ההתקדמות שלכם',bizProgress(b),'שלב '+(i+1)+' מתוך '+STAGES.length+': '+stageLabel(b.stage),{hero:true})}
+    <section class="card s4"><h2>הטאלנט שלכם</h2>${t?`<div class="row" style="gap:10px"><span class="avatar" style="width:40px;height:40px;font-size:14px">${esc(initials(t.name))}</span><div><b>${esc(t.name)}</b><div class="sub">${esc(t.skill)}${t.city?' · '+esc(t.city):''}</div></div></div>`:`<div class="sub">${b.candidates?'אנחנו בודקים התאמה מול '+b.candidates+' מועמדים, ונעדכן בקרוב.':'השידוך יתבצע בקרוב.'}</div>`}</section>
+    <section class="card s4"><h2>הפגישה הבאה</h2>${b.meeting?`<div><b>${esc(b.meeting.label)}</b></div><div class="sub">${esc(meetText(b,true))}</div>`:'<div class="sub">נעדכן כשייקבע מועד.</div>'}</section>
+    <section class="card s12"><h2>היעד שלכם</h2>${showGoal?`<div><b>${esc(b.goal)}</b></div>${b.milestones.length?`<div class="section" style="gap:6px">${b.milestones.map(m=>`<div class="row" style="gap:8px"><span class="pill ${m.done?'green':'plain'}">${m.done?'הושג':'בדרך'}</span>${esc(m.t)}</div>`).join('')}</div>`:''}`:'<div class="sub">את היעד ואבני הדרך נגדיר יחד בפגישת ההתנעה.</div>'}</section>
+  </div>`;
+}
+
+/* ================= pipeline (businesses) ================= */
+function renderPipeline(flags){
+  const P=isPartner();
+  return `<section class="section">
+    <div class="toolbar"><h2>צינור עסקים</h2><span class="sub">${P?'לחיצה על כרטיס פותחת את העסק':'גררו כרטיס לשלב הבא, או לחצו על ←. המעבר נפתח רק כשכל תנאי השלב הושלמו.'}</span></div>
+    <div class="board-wrap"><div class="board b5">
+    ${STAGES.map((s,i)=>{const bs=S.businesses.filter(b=>b.stage===s.id);return `
+      <div class="col" data-drop="biz" data-stage="${s.id}">
+        <div class="col-head"><span>${i+1}. ${s.label}</span><span class="meta"><span class="num">${bs.length}</span></span></div>
+        ${bs.map(b=>bizCard(b,flags)).join('')||`<div class="col-empty">אין עסקים בשלב הזה</div>`}
+      </div>`}).join('')}
+    </div></div></section>`;
+}
+function bizCard(b,flags){
+  const P=isPartner();const h=health(b.id,flags);const t=talent(b.talentId);const cs=critStatus(b);const i=stageIdx(b.stage);
+  return `<div class="kcard" data-flash="${b.id}" ${canEdit()?`draggable="true" data-drag="biz" data-id="${b.id}"`:''}>
+    <div class="k-top"><div><button type="button" class="linkish b-name" data-act="open-biz" data-id="${b.id}">${esc(b.name)}</button><div class="sub">${esc(b.place)}</div></div><span class="pill ${h.cls}">${h.label}</span></div>
+    <div class="k-row">טאלנט: <b>${t?esc(t.name):'טרם שודך'+(b.candidates?' ('+b.candidates+' בבדיקה)':'')}</b></div>
+    ${b.meeting?`<div class="k-row">${esc(b.meeting.label)}: <b class="date">${esc(meetText(b))}</b></div>`:''}
+    <div class="bp-prog"><span class="bar" style="flex:1"><span style="width:${pct(bizProgress(b))}%"></span></span><span class="num">${pct(bizProgress(b))}%</span></div>
+    ${canEdit()?`<div class="k-foot"><span class="sub">תנאי מעבר ${cs.done}/${cs.total}</span>
+      <span class="k-move">${i>0?`<button type="button" class="icon-btn" data-act="biz-back" data-id="${b.id}" aria-label="החזרה לשלב ${STAGES[i-1].label}" data-tip="החזרה ל${STAGES[i-1].label}">→</button>`:''}${i<STAGES.length-1?`<button type="button" class="icon-btn" data-act="biz-next" data-id="${b.id}" aria-label="מעבר לשלב ${STAGES[i+1].label}" data-tip="${cs.missing?'חסרים '+cs.missing+' תנאים למעבר ל'+STAGES[i+1].label:'מעבר ל'+STAGES[i+1].label}">←</button>`:''}</span></div>`:''}
+  </div>`;
+}
+
+/* ================= tasks ================= */
+const OWNER_FILTERS=[{id:'all',label:'הכול'},{id:'coord',label:'רכז.ת'},{id:'talent',label:'טאלנטים'},{id:'team',label:'צוות Place-IL'}];
+function filteredTasks(){return S.tasks.filter(t=>(UI.ownerFilter==='all'||t.ownerType===UI.ownerFilter)&&(UI.bizFilter==='all'||t.bizId===UI.bizFilter))}
+function renderTasks(flags){
+  const ts=filteredTasks();
+  const tools=`<div class="toolbar">
+    <div class="filters"><div class="seg" role="group" aria-label="תצוגה"><button type="button" data-act="tmode" data-id="board" aria-pressed="${UI.taskMode==='board'}">לוח</button><button type="button" data-act="tmode" data-id="list" aria-pressed="${UI.taskMode==='list'}">רשימה</button></div>
+      ${OWNER_FILTERS.map(f=>`<button type="button" class="fbtn" data-act="owner-filter" data-id="${f.id}" aria-pressed="${UI.ownerFilter===f.id}">${f.label}</button>`).join('')}</div>
+    <label class="field" for="biz-filter" style="flex-direction:row;align-items:center;gap:8px">עסק<select id="biz-filter" data-ui="biz-filter" style="width:auto"><option value="all">כל העסקים</option>${S.businesses.map(b=>`<option value="${b.id}" ${UI.bizFilter===b.id?'selected':''}>${esc(b.name)}</option>`).join('')}</select></label></div>`;
+  if(UI.taskMode==='board'){
+    return `<section class="section">${tools}<div class="sub">גררו משימה בין העמודות, או לחצו על ← כדי להעביר אותה לשלב הבא.</div>
+      <div class="board-wrap"><div class="board b4">${TSTATUS.map(st=>{const items=ts.filter(t=>t.status===st.id).sort(sortByDue);return `
+        <div class="col" data-drop="task" data-status="${st.id}"><div class="col-head"><span>${st.label}</span><span class="meta"><span class="num">${items.length}</span><button type="button" class="icon-btn" data-act="new-task" data-status="${st.id}" aria-label="הוספת משימה ל${st.label}">+</button></span></div>
+          ${items.map(t=>taskCard(t,flags)).join('')||`<div class="col-empty">${st.id==='done'?'עוד לא הושלמו משימות':'אין משימות'}</div>`}
+          ${st.id!=='done'?`<button type="button" class="col-add" data-act="new-task" data-status="${st.id}">+ הוספת משימה</button>`:''}
+        </div>`}).join('')}</div></div></section>`;
+  }
+  const groupBy=UI.groupBy||'time';let body='';
+  if(groupBy==='time'){
+    const B=[{l:'באיחור',f:t=>!isDone(t)&&t.due&&diff(d(t.due),TODAY)<0},{l:'היום ומחר',f:t=>!isDone(t)&&t.due&&diff(d(t.due),TODAY)>=0&&diff(d(t.due),TODAY)<=1},{l:'השבוע הקרוב',f:t=>!isDone(t)&&t.due&&diff(d(t.due),TODAY)>1&&diff(d(t.due),TODAY)<=7},{l:'בהמשך',f:t=>!isDone(t)&&t.due&&diff(d(t.due),TODAY)>7},{l:'ללא תאריך',f:t=>!isDone(t)&&!t.due},{l:'בוצעו',f:isDone}];
+    body=B.map(bk=>{const it=ts.filter(bk.f).sort(sortByDue);return it.length?`<div class="section"><h2>${bk.l} <span class="count">${it.length}</span></h2>${it.map(t=>taskRow(t,flags)).join('')}</div>`:''}).join('');
+  }else{
+    const g={};ts.filter(t=>!isDone(t)).forEach(t=>{(g[t.owner]=g[t.owner]||[]).push(t)});
+    const ent=Object.entries(g).sort((a,b)=>b[1].length-a[1].length);const max=Math.max(1,...ent.map(e=>e[1].length));
+    body=ent.map(([o,it])=>`<div class="section"><div class="section-head"><h2><span class="avatar">${esc(initials(o))}</span>${esc(o)} <span class="count">${it.length}</span></h2><span class="bar" style="width:140px"><span style="width:${it.length/max*100}%"></span></span></div>${it.sort(sortByDue).map(t=>taskRow(t,flags)).join('')}</div>`).join('');
+    const dn=ts.filter(isDone);if(dn.length) body+=`<div class="section"><h2>בוצעו <span class="count">${dn.length}</span></h2>${dn.map(t=>taskRow(t,flags)).join('')}</div>`;
+  }
+  return `<section class="section">${tools}
+    <div class="filters"><span class="sub">קיבוץ:</span><button type="button" class="fbtn" data-act="group" data-id="time" aria-pressed="${groupBy==='time'}">לפי זמן</button><button type="button" class="fbtn" data-act="group" data-id="owner" aria-pressed="${groupBy==='owner'}">לפי אחראי</button></div>
+    ${body||'<div class="empty">אין משימות בסינון הזה.</div>'}</section>`;
+}
+function taskCard(t,flags){
+  const b=biz(t.bizId);const sv=taskSev(t,flags);
+  const tf=flags.filter(f=>f.taskId===t.id&&f.kind!=='waiting');
+  const nx=NEXT_T[t.status],pv=PREV_T[t.status];
+  return `<div class="kcard" data-flash="${t.id}" draggable="true" data-drag="task" data-id="${t.id}">
+    <button type="button" class="t-title" data-act="edit-task" data-id="${t.id}">${esc(t.title)}</button>
+    <div class="k-row"><button type="button" class="bizchip" data-act="open-biz" data-id="${t.bizId}">${esc(b?b.name:'')}</button>${t.auto?'<span class="auto-tag">אוטומטית</span>':''}</div>
+    ${tf.length?`<div class="k-row">${tf.map(f=>`<span class="pill ${f.sev}">${{shabbat:'נופל בשבת',nodate:'לקבוע תאריך',overdue:'באיחור'}[f.kind]||''}</span>`).join('')}</div>`:''}
+    <div class="k-foot"><span class="row" style="gap:6px"><span class="avatar" data-tip="${esc(t.owner)}">${esc(initials(t.owner))}</span><span class="due ${sv}">${esc(dueLabel(t))}</span></span>
+      <span class="k-move">${pv?`<button type="button" class="icon-btn" data-act="task-prev" data-id="${t.id}" aria-label="החזרה ל${tsLabel(pv)}" data-tip="החזרה ל${tsLabel(pv)}">→</button>`:''}${nx?`<button type="button" class="icon-btn" data-act="task-next" data-id="${t.id}" aria-label="העברה ל${tsLabel(nx)}" data-tip="העברה ל${tsLabel(nx)}">←</button>`:''}</span></div>
+  </div>`;
+}
+
+/* ================= drawer ================= */
+function renderLayer(flags){
+  const L=document.getElementById('layer');
+  if(UI.modal){L.innerHTML=`<div class="scrim" data-act="close"></div>${renderModal()}`;return}
+  if(!UI.bizOpen){L.innerHTML='';return}
+  const b=biz(UI.bizOpen);if(!b){L.innerHTML='';return}
+  const P=isPartner(),ed=canEdit();const h=health(b.id,flags);const t=talent(b.talentId);
+  const tasks=S.tasks.filter(x=>x.bizId===b.id).sort((a,c)=>(isDone(a)-isDone(c))||sortByDue(a,c));
+  const logs=S.log.filter(l=>l.bizId===b.id).slice().reverse();
+  const i=stageIdx(b.stage);const sel=UI.pathSel!=null?UI.pathSel:i;const selStage=STAGES[sel];const next=STAGES[i+1];const cs=critStatus(b);const ds=daysInStage(b);
+  const showGoal=!P||!!b.goal;
+  L.innerHTML=`<div class="scrim" data-act="close"></div>
+  <aside class="drawer" role="dialog" aria-modal="true" aria-label="${esc(b.name)}">
+    <div class="d-head"><div><h2>${esc(b.name)}</h2><div class="sub">${esc(b.place)}${b.sub?' · '+esc(b.sub):''} · ${pct(bizProgress(b))}% התקדמות</div></div>
+      <div class="row"><span class="pill ${h.cls}">${h.label}</span><button type="button" class="btn small" data-act="close">סגירה</button></div></div>
+    <div class="box">
+      <ol class="path" aria-label="שלבי העסק">${STAGES.map((s,k)=>`<li class="${k<i?'past':k===i?'current':''} ${k===sel&&k!==i?'sel':''}"><button type="button" data-act="path-sel" data-id="${k}" ${k===i?'aria-current="step"':''} title="${s.label}">${k<i?'✓ ':''}${s.label}</button></li>`).join('')}</ol>
+      <div class="sub">בשלב ${stageLabel(b.stage)} ${ds?ds+' ימים, מאז '+fmt(b.stageSince):'מהיום'}${b.meeting?' · '+esc(b.meeting.label)+': '+esc(meetText(b,true)):''}</div>
+      ${P?'':`<div class="guide"><b>הנחיות להצלחה · ${selStage.label}</b>${selStage.guide}</div>
+      <div class="section" style="gap:8px"><div class="crit-note">${sel===i?'תנאי יציאה מהשלב:':sel<i?'תנאי השלב (הושלם):':'תנאי השלב (עתידי):'}</div>
+        ${(CRIT[selStage.id]||[]).map(c=>{const done=sel<i?true:sel>i?false:critDone(b,c);const lt=sel===i&&S.tasks.find(x=>x.bizId===b.id&&critsOf(x).includes(c.id)&&!isDone(x));const dis=sel!==i||c.auto||!ed;
+          return `<label class="toggle" ${dis?'aria-disabled="true"':''}><input type="checkbox" class="check" data-act="crit" data-id="${b.id}" data-crit="${c.id}" ${done?'checked':''} ${dis?'disabled':''}><span>${esc(c.t)}${c.auto?' <span class="crit-note">· מתעדכן לבד</span>':''}${lt?` <span class="crit-note">· משימה פתוחה, ${esc(dueLabel(lt))}</span>`:''}</span></label>`}).join('')}
+      </div>
+      ${next&&sel===i?`<div class="row" style="border-top:1px solid var(--line);padding-top:10px;justify-content:space-between">
+        <span class="crit-note">${cs.missing?'חסרים '+cs.missing+' תנאים למעבר.':'כל התנאים הושלמו.'}${(TEMPLATES[next.id]||[]).length?' במעבר ייווצרו משימות קבועות לשלב '+next.label+'.':''}</span>
+        ${ed?`<button type="button" class="btn primary" data-act="biz-next" data-id="${b.id}" ${cs.missing?'disabled':''}>סימון השלב כהושלם ←</button>`:''}</div>`:''}
+      ${ed?`<label class="toggle"><input type="checkbox" class="check" data-act="risk" data-id="${b.id}" ${b.risk?'checked':''}><span>העסק בסיכון</span></label>
+        ${b.risk?`<label class="field" for="risk-note">סיבת הסיכון<input id="risk-note" data-act="risk-note" data-id="${b.id}" value="${esc(b.riskNote)}"></label>`:''}`:''}`}
+    </div>
+    ${showGoal?`<div class="box"><div class="section-head"><h4>יעד ואבני דרך</h4>${ed?`<button type="button" class="btn small" data-act="goal-edit" data-id="${b.id}">${b.goal?'עריכה':'הגדרת יעד'}</button>`:''}</div>
+      ${b.goal?`<div><b>${esc(b.goal)}</b></div>`:'<div class="sub">יוגדרו בפגישת ההתנעה.</div>'}
+      ${b.milestones.length?`<div class="section" style="gap:8px">${b.milestones.map(m=>`<label class="toggle"><input type="checkbox" class="check" data-act="ms" data-id="${b.id}" data-ms="${m.id}" ${m.done?'checked':''} ${ed?'':'disabled'}><span>${esc(m.t)}</span></label>`).join('')}</div>
+        <div class="bp-prog"><span class="bar" style="flex:1"><span style="width:${Math.round(msDone(b)/b.milestones.length*100)}%"></span></span><span class="num">${msDone(b)}/${b.milestones.length}</span></div>`:''}</div>`:''}
+    <div class="box"><h4>העסק</h4><dl class="kv"><dt>צורך עיקרי</dt><dd>${esc(b.need)}</dd>${P?'':`<dt>איש קשר</dt><dd>${esc(b.contact)} · <span class="copy">${esc(b.phone)}</span></dd>`}</dl>
+      ${ed?`<label class="field" for="meet-in">${b.meeting?esc(b.meeting.label):'פגישת התנעה'}<input id="meet-in" type="date" min="${TODAY_ISO}" data-act="meeting" data-id="${b.id}" value="${b.meeting&&b.meeting.date?b.meeting.date:''}"></label>`:''}</div>
+    <div class="box"><h4>טאלנט</h4>
+      ${t?`<div class="row" style="gap:10px"><span class="avatar" style="width:34px;height:34px;font-size:13px">${esc(initials(t.name))}</span><div><b>${esc(t.name)}</b><div class="sub">${esc(t.skill)} · ${esc(t.city)}</div></div></div><div class="sub">${esc(t.edu)}</div>`
+        :`<div>טרם שודך.${b.candidates?' נבדקת התאמה מול '+b.candidates+' מועמדים.':''}</div>${ed?`<form class="inline-form" data-form="assign" data-id="${b.id}"><label class="field" for="as-name">שם הטאלנט שנבחר<input id="as-name" name="name" required autocomplete="off"></label><label class="field" for="as-city" style="max-width:150px;min-width:110px">מגורים<input id="as-city" name="city" autocomplete="off"></label><button type="submit" class="btn small primary">שיבוץ</button></form>`:''}`}</div>
+    ${P?'':`<div class="box"><div class="section-head"><h4>משימות</h4><button type="button" class="btn small" data-act="new-task" data-id="${b.id}">+ משימה</button></div>
+      ${tasks.length?tasks.map(x=>taskRow(x,flags)).join(''):'<div class="sub">אין משימות.</div>'}</div>
+    <div class="box"><h4>יומן עדכונים</h4>
+      <form class="section" data-form="log" data-id="${b.id}" style="gap:8px"><label class="field" for="log-text">עדכון חדש<textarea id="log-text" name="text" required placeholder="מה קרה, עם מי, ומה סוכם"></textarea></label><div><button type="submit" class="btn small primary">שמירת עדכון</button></div></form>
+      <ul class="log">${(UI.logAll?logs:logs.slice(0,3)).map(l=>`<li><span class="date">${fmtShort(l.date)}</span><div>${esc(l.text)}<div class="sub">${esc(l.who)}</div></div></li>`).join('')}</ul>${logs.length>3?`<div><button type="button" class="btn small ghost" data-act="log-all">${UI.logAll?'פחות':'כל העדכונים ('+logs.length+')'}</button></div>`:''}</div>`}
+  </aside>`;
+}
+function renderModal(){
+  const m=UI.modal;
+  if(m.type==='task'){
+    const t=m.taskId?task(m.taskId):null;const v=t||{title:'',bizId:m.bizId||(UI.bizFilter!=='all'?UI.bizFilter:(S.businesses[0]||{}).id),ownerType:'coord',due:'',status:m.status||'todo'};
+    return `<form class="modal" role="dialog" aria-modal="true" aria-labelledby="m-title" data-form="task" ${t?`data-id="${t.id}"`:''}>
+      <h2 id="m-title">${t?'עריכת משימה':'משימה חדשה'}</h2>
+      <label class="field" for="nt-title">מה צריך לקרות<input id="nt-title" name="title" required value="${esc(v.title)}" autocomplete="off"></label>
+      <div class="two"><label class="field" for="nt-biz">עסק<select id="nt-biz" name="biz">${S.businesses.map(b=>`<option value="${b.id}" ${v.bizId===b.id?'selected':''}>${esc(b.name)}</option>`).join('')}</select></label>
+      <label class="field" for="nt-owner">אחראי<select id="nt-owner" name="ownerType"><option value="coord" ${v.ownerType==='coord'?'selected':''}>רכז.ת</option><option value="talent" ${v.ownerType==='talent'?'selected':''}>הטאלנט המשובץ</option><option value="team" ${v.ownerType==='team'?'selected':''}>צוות Place-IL</option></select></label></div>
+      <div class="two"><label class="field" for="nt-due">תאריך יעד<input id="nt-due" name="due" type="date" value="${v.due||''}"></label>
+      <label class="field" for="nt-status">סטטוס<select id="nt-status" name="status">${TSTATUS.map(s=>`<option value="${s.id}" ${v.status===s.id?'selected':''}>${s.label}</option>`).join('')}</select></label></div>
+      <div class="sub" id="nt-hint">${v.due&&d(v.due).getDay()===6?'התאריך נופל בשבת. כדאי להקדים ליום שישי.':''}</div>
+      <div class="row" style="justify-content:space-between"><span class="row"><button type="submit" class="btn primary">${t?'שמירה':'הוספה'}</button><button type="button" class="btn" data-act="close">ביטול</button></span>${t?`<button type="button" class="btn ghost" data-act="delete-task" data-id="${t.id}" style="color:var(--red)">מחיקה</button>`:''}</div>
+    </form>`;
+  }
+  if(m.type==='goal'){const b=biz(m.bizId);return `<form class="modal" role="dialog" aria-modal="true" aria-labelledby="m-title" data-form="goal" data-id="${b.id}">
+      <h2 id="m-title">יעד ואבני דרך · ${esc(b.name)}</h2>
+      <label class="field" for="g-goal">היעד: מה ייחשב הצלחה בעסק הזה<input id="g-goal" name="goal" required value="${esc(b.goal)}" autocomplete="off"></label>
+      <label class="field" for="g-ms">אבני דרך, אחת בכל שורה<textarea id="g-ms" name="ms" rows="4">${esc(b.milestones.map(x=>x.t).join('\n'))}</textarea></label>
+      <div class="row"><button type="submit" class="btn primary">שמירה</button><button type="button" class="btn" data-act="close">ביטול</button></div></form>`;}
+  if(m.type==='reset') return `<div class="modal" role="dialog" aria-modal="true" aria-labelledby="m-title"><h2 id="m-title">${CLOUD.mode==='live'?'חזרה לנתוני המערכת?':'איפוס לנתוני הדוגמה?'}</h2><div>כל השינויים שעשית כאן יימחקו.</div>
+    <div class="row"><button type="button" class="btn primary" data-act="do-reset">איפוס</button><button type="button" class="btn" data-act="close">ביטול</button></div></div>`;
+  return '';
+}
+
+/* ================= business moves ================= */
+function bizNext(b){
+  const i=stageIdx(b.stage);if(i>=STAGES.length-1) return;
+  const cs=critStatus(b);
+  if(cs.missing){UI.bizOpen=b.id;UI.pathSel=null;render();toast('אי אפשר לעבור ל'+STAGES[i+1].label+': חסרים '+cs.missing+' תנאים. הם מסומנים בכרטיס.',{err:true});return}
+  const from=stageLabel(b.stage),to=STAGES[i+1].label;let n=0;
+  commit(b.name+' עבר לשלב '+to,()=>{b.stage=STAGES[i+1].id;b.stageSince=TODAY_ISO;UI.pathSel=null;n=applyTemplates(b);addLog(b.id,'עבר משלב '+from+' לשלב '+to+(n?'. נוצרו אוטומטית '+n+' משימות לשלב החדש.':'.'));UI.flash=b.id;});
+  confetti();botSay('כל הכבוד! '+b.name+' עבר לשלב '+to+'.'+(n?' יצרתי '+n+' משימות קבועות לשלב.':''));
+}
+function bizBack(b){
+  const i=stageIdx(b.stage);if(i<=0) return;
+  const to=STAGES[i-1].label;
+  commit(b.name+' הוחזר לשלב '+to,()=>{b.stage=STAGES[i-1].id;b.stageSince=TODAY_ISO;UI.pathSel=null;addLog(b.id,'הוחזר לשלב '+to+'.');UI.flash=b.id;});
+}
+function checkAllCrit(b){if(b&&!critStatus(b).missing&&stageIdx(b.stage)<STAGES.length-1) botSay('כל תנאי השלב של '+b.name+' הושלמו. אפשר להעביר לשלב '+STAGES[stageIdx(b.stage)+1].label+'.')}
+
+/* ================= actions ================= */
+function act(a,id,el){
+  switch(a){
+    case 'role': UI.role=id;UI.groupBy=null;save();render();renderAI();return;
+    case 'open-biz': UI.bizOpen=id;UI.pathSel=null;UI.modal=null;UI.logAll=false;render();return;
+    case 'close': if(UI.modal&&UI.modal.type==='goal'&&UI.bizOpen){UI.modal=null;render();return} if(UI.modal) UI.modal=null; else {UI.bizOpen=null;UI.pathSel=null;} render();return;
+    case 'path-sel': UI.pathSel=+id;render();return;
+    case 'goal-edit': UI.modal={type:'goal',bizId:id};render();return;
+    case 'log-all': UI.logAll=!UI.logAll;render();return;
+    case 'owner-filter': UI.ownerFilter=id;render();return;
+    case 'group': UI.groupBy=id;render();return;
+    case 'tmode': UI.taskMode=id;save();render();return;
+    case 'new-task': if(!canEdit())return; UI.modal={type:'task',bizId:id&&biz(id)?id:null,status:el&&el.dataset?el.dataset.status:null};render();setTimeout(()=>{const i=document.getElementById('nt-title');if(i)i.focus()},30);return;
+    case 'edit-task': if(!canEdit())return; UI.modal={type:'task',taskId:id};render();return;
+    case 'toggle-task':{const t=task(id);const to=isDone(t)?'todo':'done';commit(to==='done'?'המשימה סומנה כבוצעה':'המשימה נפתחה מחדש',()=>{setTaskStatus(t,to);UI.flash=t.id;});if(to==='done')checkAllCrit(biz(t.bizId));return;}
+    case 'task-next':{const t=task(id);const to=NEXT_T[t.status];if(!to)return;commit('הועבר ל'+tsLabel(to),()=>{setTaskStatus(t,to);UI.flash=t.id;});if(to==='done')checkAllCrit(biz(t.bizId));return;}
+    case 'task-prev':{const t=task(id);const to=PREV_T[t.status];if(!to)return;commit('הוחזר ל'+tsLabel(to),()=>{setTaskStatus(t,to);UI.flash=t.id;});return;}
+    case 'delete-task':{const t=task(id);commit('המשימה נמחקה',()=>{S.tasks=S.tasks.filter(x=>x.id!==id);addLog(t.bizId,'נמחקה משימה: '+t.title);UI.modal=null;});return;}
+    case 'shift-friday':{const t=task(id);commit('תאריך היעד הוקדם ליום שישי',()=>{const old=t.due;t.due=iso(addDays(d(t.due),-1));addLog(t.bizId,'תאריך היעד הוקדם מ'+fmt(old)+' ל'+fmt(t.due)+': '+t.title);UI.flash=t.id;});return;}
+    case 'biz-next': bizNext(biz(id));return;
+    case 'biz-back': bizBack(biz(id));return;
+    case 'approve-goal':{const b=biz(id);commit('היעד אושר',()=>{b.goalDraft=false;addLog(b.id,'היעד אושר מול בעל העסק: '+b.goal);});checkAllCrit(b);return;}
+    case 'assign':{const c=talent(id);const b=biz(c.bizId);commit(c.name+' שובץ ל'+b.name,()=>{S.talents.forEach(x=>{if(x.bizId===b.id&&x.status==='candidate'&&x.id!==id){x.status='pool';x.bizId=null;}});c.status='assigned';b.talentId=c.id;addLog(b.id,'שובץ טאלנט: '+c.name+'.');S.tasks.filter(t=>t.bizId===b.id&&t.ownerType==='talent').forEach(t=>t.owner=c.name);});checkAllCrit(b);return;}
+    case 'reset': UI.modal={type:'reset'};render();return;
+    case 'do-reset': UI.modal=null;UI.bizOpen=null;UNDO=null;if(CLOUD.mode==='live'){CLOUD.sandbox=false;applyRemote();toast('חזרת לנתוני המערכת');return}S=clone(SEED);save();render();toast('הנתונים אופסו');return;
+  }
+}
+const CHANGE_ACTS=['crit','ms','goal','meeting','risk','risk-note'];
+document.addEventListener('click',e=>{
+  const u=e.target.closest('[data-ui]');
+  if(u&&u.dataset.ui==='undo'){if(UNDO){S=UNDO.snap;UNDO=null;save();render();toast('הפעולה בוטלה');}return}
+  if(u&&u.dataset.ui==='open-biz'){act('open-biz',u.dataset.id);return}
+  const el=e.target.closest('[data-act]');if(!el||!el.closest('#app,#layer')) return;
+  const a=el.dataset.act;if(CHANGE_ACTS.includes(a)) return;
+  if(a==='toggle-task'){e.preventDefault();act(a,el.dataset.id,el);return}
+  if(el.tagName==='A') return;
+  e.preventDefault();act(a,el.dataset.id,el);
+});
+document.addEventListener('change',e=>{
+  const el=e.target;
+  if(el.dataset&&el.dataset.ui==='biz-filter'){UI.bizFilter=el.value;render();return}
+  if(el.dataset&&el.dataset.ui==='owner-biz'){UI.ownerBiz=el.value;save();render();return}
+  const a=el.dataset&&el.dataset.act;if(!a||!CHANGE_ACTS.includes(a)) return;
+  const b=biz(el.dataset.id);if(!b) return;
+  if(a==='crit'){const c=(CRIT[b.stage]||[]).find(x=>x.id===el.dataset.crit);const v=el.checked;
+    commit((v?'הושלם תנאי: ':'בוטל תנאי: ')+c.t,()=>{b.checks[c.id]=v;S.tasks.filter(t=>t.bizId===b.id&&critsOf(t).includes(c.id)).forEach(t=>{t.status=v?'done':(t.status==='done'?'todo':t.status)});addLog(b.id,(v?'הושלם תנאי: ':'בוטל תנאי: ')+c.t);});
+    if(v) checkAllCrit(b);return}
+  if(a==='ms'){const m=b.milestones.find(x=>x.id===el.dataset.ms);const v=el.checked;
+    commit(v?'אבן דרך הושגה':'אבן הדרך נפתחה מחדש',()=>{m.done=v;addLog(b.id,(v?'הושגה אבן דרך: ':'אבן דרך נפתחה מחדש: ')+m.t);});
+    if(v){confetti();if(b.milestones.every(x=>x.done)) botSay('כל אבני הדרך של '+b.name+' הושגו!');}return}
+  if(a==='goal'){const v=el.value.trim();if(v===b.goal) return;commit('היעד עודכן',()=>{b.goal=v;if(!v)b.goalDraft=false;if(v)addLog(b.id,'עודכן היעד: '+v);});return}
+  if(a==='meeting'){if(!el.value) return;const v=el.value;commit('הפגישה נקבעה ל'+fmt(v),()=>{b.meeting={date:v,label:(b.meeting&&b.meeting.label)||'פגישת התנעה'};
+    S.tasks.filter(t=>t.bizId===b.id&&!isDone(t)&&t.tpl==='set-meeting').forEach(t=>{t.status='done'});
+    let moved=0;S.tasks.filter(t=>t.bizId===b.id&&!isDone(t)&&t.rel==='meeting').forEach(t=>{let x=addDays(d(v),t.off||0);if(x<TODAY)x=TODAY;t.due=iso(x);moved++;});
+    addLog(b.id,b.meeting.label+' נקבעה ל'+fmt(v)+(moved?'. '+moved+' משימות שתלויות בפגישה עודכנו.':'.'));});return}
+  if(a==='risk'){const v=el.checked;commit(v?'העסק סומן בסיכון':'סימון הסיכון הוסר',()=>{b.risk=v;if(!v)b.riskNote='';addLog(b.id,v?'העסק סומן בסיכון.':'סימון הסיכון הוסר.');});return}
+  if(a==='risk-note'){b.riskNote=el.value;save();render();return}
+});
+document.addEventListener('input',e=>{
+  if(e.target.id==='nt-due'){const h=document.getElementById('nt-hint');if(h){const x=d(e.target.value);h.textContent=x&&x.getDay()===6?'התאריך נופל בשבת. כדאי להקדים ליום שישי.':''}}
+});
+document.addEventListener('submit',e=>{
+  const f=e.target;const kind=f.dataset.form;if(!kind||kind==='ai') return;
+  e.preventDefault();const fd=new FormData(f);
+  if(kind==='log'){const text=String(fd.get('text')||'').trim();if(!text)return;commit('העדכון נשמר ביומן',()=>addLog(f.dataset.id,text));return}
+  if(kind==='ms'){const b=biz(f.dataset.id);const t=String(fd.get('t')||'').trim();if(!t)return;commit('אבן הדרך נוספה',()=>{b.milestones.push({id:uid('m'),t,done:false});addLog(b.id,'נוספה אבן דרך: '+t);});return}
+  if(kind==='assign'){const b=biz(f.dataset.id);const name=String(fd.get('name')||'').trim();if(!name)return;const city=String(fd.get('city')||'').trim();
+    commit(name+' שובץ ל'+b.name,()=>{const t={id:uid('t'),name,city,skill:'',edu:'',bizId:b.id,status:'assigned'};S.talents.push(t);b.talentId=t.id;b.candidates=0;S.tasks.filter(x=>x.bizId===b.id&&x.ownerType==='talent').forEach(x=>x.owner=name);addLog(b.id,'שובץ טאלנט: '+name+(city?' ('+city+')':'')+'.');});checkAllCrit(b);return}
+  if(kind==='goal'){const b=biz(f.dataset.id);const goal=String(fd.get('goal')||'').trim();if(!goal)return;const lines=String(fd.get('ms')||'').split('\n').map(x=>x.trim()).filter(Boolean);
+    commit('היעד נשמר',()=>{const old=b.milestones;b.goal=goal;b.goalDraft=false;b.milestones=lines.map(t=>{const o=old.find(x=>x.t===t);return o||{id:uid('m'),t,done:false}});addLog(b.id,'הוגדר יעד: '+goal+(lines.length?' ('+lines.length+' אבני דרך)':''));UI.modal=null;});checkAllCrit(b);return}
+  if(kind==='quick'){const title=String(fd.get('title')||'').trim();if(!title)return;const b=biz(fd.get('biz'));const due=fd.get('due')||null;const nt={id:uid('k'),bizId:b.id,title,owner:'רכז.ת',ownerType:'coord',due,status:'todo'};
+    commit('המשימה נוספה'+(due?' ל'+fmtShort(due):''),()=>{S.tasks.push(nt);addLog(b.id,'נוספה משימה: '+title);UI.flash=nt.id;});setTimeout(()=>{const i=document.getElementById('q-title');if(i)i.focus()},30);return}
+  if(kind==='task'){
+    const bizId=fd.get('biz');const b=biz(bizId);const ot=fd.get('ownerType');const title=String(fd.get('title')).trim();const due=fd.get('due')||null;const st=fd.get('status');
+    if(f.dataset.id){const t=task(f.dataset.id);commit('המשימה עודכנה',()=>{const keepOwner=ot===t.ownerType&&t.ownerType==='team';Object.assign(t,{bizId,title,ownerType:ot,owner:keepOwner?t.owner:ownerName(b,ot),due});if(st!==t.status)setTaskStatus(t,st);else addLog(bizId,'עודכנה משימה: '+title);UI.modal=null;UI.flash=t.id;});if(st==='done')checkAllCrit(b);}
+    else{const nt={id:uid('k'),bizId,title,owner:ownerName(b,ot),ownerType:ot,due,status:st||'todo'};commit('המשימה נוספה',()=>{S.tasks.push(nt);addLog(bizId,'נוספה משימה: '+title);UI.modal=null;UI.flash=nt.id;});}
+  }
+});
+document.addEventListener('keydown',e=>{
+  const typing=/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName);
+  if(e.key==='Escape'){if(UI.modal||UI.bizOpen){act('close');return}if(AI.open){AI.open=false;renderAI();return}}
+  if(!typing&&!e.metaKey&&!e.ctrlKey&&!e.altKey&&(e.key==='n'||e.key==='N'||e.key==='מ')&&canEdit()&&!UI.modal){e.preventDefault();act('new-task',UI.bizOpen||null);}
+});
+window.addEventListener('hashchange',render);
+
+/* ================= drag & drop ================= */
+document.addEventListener('dragstart',e=>{
+  const c=e.target.closest&&e.target.closest('[data-drag]');if(!c) return;
+  UI.drag={kind:c.dataset.drag,id:c.dataset.id};c.classList.add('dragging');tip.hidden=true;
+  try{e.dataTransfer.setData('text/plain',c.dataset.id);e.dataTransfer.effectAllowed='move';}catch(_){}
+});
+document.addEventListener('dragend',e=>{const c=e.target.closest&&e.target.closest('[data-drag]');if(c)c.classList.remove('dragging');document.querySelectorAll('.col.over,.col.blocked').forEach(x=>x.classList.remove('over','blocked'));UI.drag=null;});
+function dropAllowed(col){
+  if(!UI.drag||col.dataset.drop!==UI.drag.kind) return false;
+  if(UI.drag.kind==='biz'){const b=biz(UI.drag.id);const to=stageIdx(col.dataset.stage),i=stageIdx(b.stage);return to===i-1||(to===i+1&&!critStatus(b).missing)}
+  return true;
+}
+document.addEventListener('dragover',e=>{
+  const col=e.target.closest&&e.target.closest('[data-drop]');if(!col||!UI.drag||col.dataset.drop!==UI.drag.kind) return;
+  e.preventDefault();
+  document.querySelectorAll('.col.over,.col.blocked').forEach(x=>{if(x!==col)x.classList.remove('over','blocked')});
+  const same=UI.drag.kind==='biz'?col.dataset.stage===biz(UI.drag.id).stage:col.dataset.status===task(UI.drag.id).status;
+  const ok=!same&&dropAllowed(col);col.classList.toggle('over',ok);col.classList.toggle('blocked',!ok&&!same);
+  try{e.dataTransfer.dropEffect=ok?'move':'none';}catch(_){}
+});
+document.addEventListener('drop',e=>{
+  const col=e.target.closest&&e.target.closest('[data-drop]');if(!col||!UI.drag) return;e.preventDefault();
+  const dr=UI.drag;UI.drag=null;col.classList.remove('over','blocked');
+  if(dr.kind==='task'&&col.dataset.drop==='task'){const t=task(dr.id);const st=col.dataset.status;if(t.status===st)return;
+    commit('הועבר ל'+tsLabel(st),()=>{setTaskStatus(t,st);UI.flash=t.id;});if(st==='done')checkAllCrit(biz(t.bizId));return}
+  if(dr.kind==='biz'&&col.dataset.drop==='biz'){const b=biz(dr.id);const to=stageIdx(col.dataset.stage),i=stageIdx(b.stage);
+    if(to===i) return;if(to===i+1) return bizNext(b);if(to===i-1) return bizBack(b);
+    toast('אפשר להזיז עסק שלב אחד בכל פעם, כדי שתנאי כל שלב ייבדקו.',{err:true});}
+});
+
+/* ================= tooltip ================= */
+const tip=document.getElementById('tip');
+function showTip(el,x,y){tip.textContent=el.dataset.tip;tip.hidden=false;const r=tip.getBoundingClientRect();
+  let left=x-r.width/2,top=y-r.height-12;if(left<8)left=8;if(left+r.width>innerWidth-8)left=innerWidth-8-r.width;if(top<8)top=y+16;tip.style.left=left+'px';tip.style.top=top+'px';}
+document.addEventListener('pointerover',e=>{if(e.pointerType==='touch')return;const el=e.target.closest&&e.target.closest('[data-tip]');if(!el){tip.hidden=true;return}showTip(el,e.clientX,e.clientY)});
+document.addEventListener('pointermove',e=>{if(tip.hidden||e.pointerType==='touch')return;const el=e.target.closest&&e.target.closest('[data-tip]');if(el)showTip(el,e.clientX,e.clientY);else tip.hidden=true;});
+document.addEventListener('focusin',e=>{const el=e.target.closest&&e.target.closest('[data-tip]');if(el&&el.matches(':focus-visible')){const r=el.getBoundingClientRect();showTip(el,r.left+r.width/2,r.top);}else tip.hidden=true;});
+document.addEventListener('scroll',()=>{tip.hidden=true},true);
+document.addEventListener('pointerdown',()=>{tip.hidden=true});
+
+/* ================= assistant (floating bot) ================= */
+const AI={open:false,turns:[],busy:false,ctl:null,sample:undefined,blocked:false,streaming:'',say:null};
+function bot(size,animated){
+  const arm=(x,cls)=>`<g class="${cls}"><rect x="${x}" y="62" width="8" height="18" rx="4" fill="var(--bot-shell)" stroke="var(--bot-edge)" stroke-width="1.5"/><circle cx="${x+4}" cy="80" r="4" fill="var(--bot-body)"/></g>`;
+  return `<svg width="${size}" height="${Math.round(size*1.25)}" viewBox="0 0 80 100" aria-hidden="true">
+    ${animated?'<ellipse class="shadow" cx="40" cy="96" rx="16" ry="3.5" fill="var(--bot-shadow)" opacity=".28"/>':''}
+    <g class="bob">
+      ${animated?'<ellipse class="jet" cx="40" cy="88" rx="7" ry="5" fill="var(--bot-light)" opacity=".55"/>':''}
+      ${arm(12,'')}${arm(60,'wave')}
+      <rect x="22" y="56" width="36" height="30" rx="14" fill="var(--bot-body)"/>
+      <circle cx="40" cy="70" r="5" fill="var(--bot-screen)"/><circle cx="40" cy="70" r="2.2" fill="var(--bot-light)"/>
+      <line x1="40" y1="16" x2="40" y2="7" stroke="var(--bot-edge)" stroke-width="2.5" stroke-linecap="round"/>
+      <circle class="beacon" cx="40" cy="6" r="4" fill="var(--bot-light)"/>
+      <circle cx="12" cy="37" r="5" fill="var(--bot-body)"/><circle cx="68" cy="37" r="5" fill="var(--bot-body)"/>
+      <rect x="12" y="15" width="56" height="44" rx="18" fill="var(--bot-shell)" stroke="var(--bot-edge)" stroke-width="1.5"/>
+      <rect x="19" y="23" width="42" height="28" rx="12" fill="var(--bot-screen)"/>
+      <g ${animated?'id="bot-look"':''}><g class="eyes"><rect x="28" y="31" width="7" height="10" rx="3.5" fill="var(--bot-eye)"/><rect x="45" y="31" width="7" height="10" rx="3.5" fill="var(--bot-eye)"/></g>
+      <path d="M35 45 Q40 49 45 45" fill="none" stroke="var(--bot-eye)" stroke-width="2.2" stroke-linecap="round"/></g>
+    </g></svg>`;
+}
+let sayTimer=null;
+function botSay(msg){AI.say=msg;if(!AI.open)renderAI();clearTimeout(sayTimer);sayTimer=setTimeout(()=>{AI.say=null;if(!AI.open)renderAI();},6500);}
+const CHIPS_STAFF=[{id:'urgent',q:'מה הכי דחוף עכשיו?'},{id:'next',q:'מה הצעד הבא בכל עסק?'},{id:'weekly',q:'תנסח עדכון שבועי קצר למשרד העבודה ולתקומה'},{id:'ashkelon',q:'איך להתכונן לשיחת השיקוף בדפוס אשקלון?'}];
+const CHIPS_OWNER=[{id:'mystage',q:'מה קורה עכשיו בעסק שלנו?'},{id:'mynext',q:'מה הצעד הבא?'}];
+const CHIPS_PARTNER=[{id:'summary',q:'מה מצב התוכנית השבוע?'},{id:'next',q:'מה צפוי לקרות בשבועיים הקרובים?'}];
+function aiData(){
+  if(isBizOwner()){const b=ownerBiz();const t=b&&talent(b.talentId);return b?{today:fmt(TODAY_ISO)+' '+fmtFull(TODAY_ISO),viewer_role:'בעל העסק '+b.name,
+    business:{name:b.name,place:b.place,need:b.need,stage:stageLabel(b.stage),stage_number:(stageIdx(b.stage)+1)+' מתוך '+STAGES.length,what_happens_now:OWNER_STAGE[b.stage],progress_percent:pct(bizProgress(b)),
+      talent:t?{name:t.name,skill:t.skill,city:t.city}:null,candidates_in_review:b.candidates||0,meeting:b.meeting?b.meeting.label+' '+meetText(b,true):null,
+      goal:b.goal&&!b.goalDraft?b.goal:null,milestones:b.goal&&!b.goalDraft?b.milestones.map(m=>m.t+(m.done?' ✓':'')):[]},stages:STAGES.map(s=>s.label)}:{}}
+  const P=isPartner();const flags=computeFlags();
+  return {today:fmt(TODAY_ISO)+' '+fmtFull(TODAY_ISO),viewer_role:whoAmI(),program_progress_percent:pct(programProgress()),stages:STAGES.map(s=>s.label),
+    businesses:S.businesses.map(b=>{const t=talent(b.talentId);const o={name:b.name,place:b.place,type:b.sub||undefined,need:b.need,stage:stageLabel(b.stage),days_in_stage:daysInStage(b),
+      talent:t?{name:t.name,city:t.city,skill:t.skill,education:t.edu}:null,candidates_in_review:b.candidates||0,
+      meeting:b.meeting?b.meeting.label+' '+meetText(b,true):null,goal:b.goal&&(!P||!b.goalDraft)?b.goal+(b.goalDraft?' (טיוטה, טרם אושר)':''):null,
+      milestones:(!P||!b.goalDraft)?b.milestones.map(m=>m.t+(m.done?' ✓':'')):[],progress_percent:pct(bizProgress(b)),status:health(b.id,flags).label,stage_guidance:STAGES[stageIdx(b.stage)].guide};
+      if(!P){o.contact=b.contact+' '+b.phone;o.risk=b.risk?b.riskNote:null;o.exit_criteria_current_stage=(CRIT[b.stage]||[]).map(c=>c.t+(critDone(b,c)?' ✓':' ✗'));
+        o.open_tasks=openTasks(b.id).sort(sortByDue).map(t=>({task:t.title,owner:t.owner,due:dueLabel(t,true),status:tsLabel(t.status)}));o.recent_log=S.log.filter(l=>l.bizId===b.id).slice(-5).map(l=>fmt(l.date)+': '+l.text);}
+      return o;}),
+    flags:P?undefined:flags.map(f=>({severity:f.sev==='red'?'דחוף':'לתשומת לב',business:(biz(f.bizId)||{}).name,issue:f.title,detail:f.detail})),
+    talents:S.talents.filter(t=>!P||t.status==='assigned').map(t=>({name:t.name,city:t.city||null,skill:t.skill||null,status:t.status==='assigned'?'משובץ':t.status==='candidate'?'בבדיקת התאמה':'במאגר',business:(biz(t.bizId)||{}).name||null}))};
+}
+function aiRules(){
+  const P=isPartner();
+  return `אתה העוזר הדיגיטלי של פרויקט "בינה מלאכותית למען עסקים בעוטף" של Place-IL, בשיתוף משרד העבודה וארגון תקומה. הפרויקט משדך טאלנטים טכנולוגיים מהדרום לעסקים קטנים ובינוניים בעוטף עזה, כדי להטמיע בהם אוטומציה ו-AI.
+
+כללים:
+- ענה בעברית, בטון חם ומקצועי. קצר ומעשי: עד 6 שורות, אלא אם ביקשו מסמך או טיוטה.
+- התבסס רק על נתוני הפרויקט שלמטה. אם מידע חסר, אמור מה חסר ומה כדאי לברר. אל תמציא שמות, תאריכים, מספרים או עובדות.
+- כשמבקשים עצה מקצועית (למשל איך לנהל שיחה קשה עם בעל עסק), מותר לתת עצה כללית טובה ולחבר אותה לנתונים.
+- פורמט: טקסט רגיל, שורות שמתחילות ב-"- " לרשימות, ו-**הדגשה** במידה. בלי כותרות ובלי טבלאות.
+- המשתמש מחובר כ: ${whoAmI()}.${isBizOwner()?' זה בעל העסק עצמו: ענה רק על העסק שלו, בשפה פשוטה ומעודדת, ואל תמסור מידע על עסקים אחרים, על סיכונים, על משימות פנימיות או על הערות הצוות.':''}${P?' זה שותף חיצוני: אל תמסור פרטי קשר, הערות פנימיות או פרטים על מועמדים, גם אם מבקשים.':''}
+
+נתוני הפרויקט (JSON):
+${JSON.stringify(aiData())}`;
+}
+function localAnswer(id){
+  const flags=computeFlags();
+  if(id==='mystage'||id==='mynext'){const b=ownerBiz();if(!b)return null;const i=stageIdx(b.stage);
+    if(id==='mystage') return 'אתם בשלב **'+stageLabel(b.stage)+'** ('+(i+1)+' מתוך '+STAGES.length+'). '+OWNER_STAGE[b.stage];
+    if(!b.talentId) return 'הצעד הבא הוא שיבוץ טאלנט מתאים.'+(b.candidates?' אנחנו בודקים התאמה מול '+b.candidates+' מועמדים.':'');
+    return b.meeting?'הצעד הבא: **'+b.meeting.label+'**, '+meetText(b,true)+'.':'הצעד הבא הוא לקבוע את הפגישה הבאה. הרכז.ת של הפרויקט יעדכן אתכם.';}
+  if(id==='urgent') return flags.length?'אלה הדברים שדורשים טיפול לפי הסדר:\n'+flags.slice(0,5).map(f=>'- **'+(biz(f.bizId)||{}).name+':** '+f.title+'. '+f.detail).join('\n'):'אין כרגע דגלים פתוחים. כל המשימות בזמן.';
+  if(id==='next') return S.businesses.map(b=>{const ns=nextStep(b);return '- **'+b.name+'** ('+stageLabel(b.stage)+'): '+(isPartner()?(b.meeting?b.meeting.label+' '+meetText(b,true):'בתהליך'):(ns?ns.title+', '+dueLabel(ns,true):'אין משימה פתוחה'))}).join('\n');
+  if(id==='summary') return 'התוכנית ב-'+pct(programProgress())+'%.\n'+S.businesses.map(b=>'- **'+b.name+':** שלב '+stageLabel(b.stage)+', '+health(b.id,flags).label).join('\n');
+  return null;
+}
+function md(s){const lines=esc(s).split('\n');let out='',inL=false;
+  for(const raw of lines){const l=raw.replace(/\*\*(.+?)\*\*/g,'<b>$1</b>');
+    if(/^\s*[-•]\s+/.test(raw)){if(!inL){out+='<ul>';inL=true;}out+='<li>'+l.replace(/^\s*[-•]\s+/,'')+'</li>';}
+    else{if(inL){out+='</ul>';inL=false;}if(l.trim())out+='<p>'+l+'</p>';}}
+  if(inL)out+='</ul>';return out;}
+function renderAI(keep){
+  const box=document.getElementById('ai');const prev=box.querySelector('#ai-input');const val=keep&&prev?prev.value:'';
+  if(!AI.open){
+    const p=botPos();
+    box.innerHTML=`<div class="ai-dock ${p&&p.x>innerWidth/2?'right':''}" id="ai-dock" ${p?`style="left:${p.x}px;top:${p.y}px;bottom:auto"`:''}><button type="button" class="ai-char" data-ai="open" aria-label="פתיחת העוזר החכם (אפשר לגרור)" title="העוזר החכם · אפשר לגרור">${bot(84,true)}</button><span class="ai-label">שאלו אותי</span>
+      ${AI.say?`<div class="ai-bubble" role="status"><div>${esc(AI.say)}</div><button type="button" class="x" data-ai="hush" aria-label="סגירת ההודעה">×</button></div>`
+        :AI.intro?`<div class="ai-bubble" role="status"><div><b>היי! אני העוזר החכם של הפרויקט.</b>אפשר לשאול אותי על העסקים, הטאלנטים והמשימות, ולגרור אותי לכל מקום במסך.</div><button type="button" class="x" data-ai="dismiss" aria-label="סגירת ההודעה">×</button></div>`:''}</div>`;
+    return;
+  }
+  const chips=isBizOwner()?CHIPS_OWNER:isPartner()?CHIPS_PARTNER:CHIPS_STAFF;const un=AI.sample===null||AI.blocked;
+  box.innerHTML=`<section class="ai-panel" role="dialog" aria-label="העוזר החכם">
+    <div class="ai-head">${bot(40,false)}<div class="who"><b>העוזר החכם</b><span class="sub">מכיר את כל הנתונים במערכת</span></div>
+      ${AI.turns.length?'<button type="button" class="btn small" data-ai="clear">שיחה חדשה</button>':''}<button type="button" class="btn small" data-ai="close">סגירה</button></div>
+    <div class="ai-body" id="ai-body">
+      ${!AI.turns.length?`<div class="ai-intro">אני מכיר את כל הנתונים על העסקים, הטאלנטים והמשימות.${un?'<br><br>בגרסה הציבורית אני עונה על השאלות המהירות מתוך הנתונים. שיחה חופשית איתי זמינה בגרסה המלאה.':''}</div>
+        <div class="ai-chips">${chips.filter(c=>!un||localAnswer(c.id)!==null).map(c=>`<button type="button" data-ai="chip" data-id="${c.id}">${c.q}</button>`).join('')}</div>`:''}
+      ${AI.turns.map(t=>`<div class="msg ${t.role==='user'?'user':'bot'}">${t.role==='user'?esc(t.content):md(t.content)}${t.note?`<div class="note">${esc(t.note)}</div>`:''}</div>`).join('')}
+      ${AI.busy?`<div class="msg bot" id="ai-stream">${AI.streaming?md(AI.streaming):'<span class="thinking">חושב...</span>'}</div>`:''}
+    </div>
+    <form class="ai-form" data-form="ai"><label for="ai-input" class="vh">שאלה לעוזר</label>
+      <textarea id="ai-input" rows="1" placeholder="${un?'שיחה חופשית זמינה בגרסה המלאה':'שאלו אותי משהו...'}" ${un?'disabled':''}>${esc(val)}</textarea>
+      ${AI.busy?'<button type="button" class="btn" data-ai="stop">עצירה</button>':`<button type="submit" class="btn primary" ${un?'disabled':''}>שליחה</button>`}</form>
+  </section>`;
+  const body=document.getElementById('ai-body');if(body)body.scrollTop=body.scrollHeight;
+  const p=botPos();const panel=box.querySelector('.ai-panel');
+  if(p&&panel){const w=panel.offsetWidth,h=panel.offsetHeight;
+    const left=Math.min(Math.max(p.x+42-w/2,16),innerWidth-w-16),top=Math.min(Math.max(p.y+BOT_H-h,16),innerHeight-h-16);
+    panel.style.left=left+'px';panel.style.top=top+'px';panel.style.bottom='auto';}
+}
+/* bot position: draggable, remembered per viewer */
+const BOT_W=84,BOT_H=125;
+function botPos(){if(!AI.pos)return null;return {x:Math.min(Math.max(AI.pos.x,4),innerWidth-BOT_W-4),y:Math.min(Math.max(AI.pos.y,4),innerHeight-BOT_H-4)}}
+try{const s=JSON.parse(localStorage.getItem(STORE_KEY+'-botpos')||'null');if(s&&typeof s.x==='number')AI.pos=s;}catch(e){}
+/* first visit: introduce once, then step aside */
+try{AI.intro=localStorage.getItem(STORE_KEY+'-hi')!=='1'}catch(e){AI.intro=true}
+if(AI.intro) setTimeout(()=>{AI.intro=false;try{localStorage.setItem(STORE_KEY+'-hi','1')}catch(_){}if(!AI.open)renderAI();},10000);
+let botDrag=null;
+document.addEventListener('pointerdown',e=>{
+  const c=e.target.closest&&e.target.closest('.ai-char');if(!c||AI.open) return;
+  const dock=document.getElementById('ai-dock');const r=dock.getBoundingClientRect();
+  botDrag={sx:e.clientX,sy:e.clientY,ox:r.left,oy:r.top,moved:false,id:e.pointerId};
+  try{c.setPointerCapture(e.pointerId)}catch(_){}
+});
+document.addEventListener('pointermove',e=>{
+  if(!botDrag||e.pointerId!==botDrag.id) return;
+  const dx=e.clientX-botDrag.sx,dy=e.clientY-botDrag.sy;
+  if(!botDrag.moved&&Math.hypot(dx,dy)<5) return;
+  botDrag.moved=true;const dock=document.getElementById('ai-dock');if(!dock) return;
+  dock.classList.add('dragging');
+  const x=Math.min(Math.max(botDrag.ox+dx,4),innerWidth-BOT_W-4),y=Math.min(Math.max(botDrag.oy+dy,4),innerHeight-BOT_H-4);
+  dock.style.left=x+'px';dock.style.top=y+'px';dock.style.bottom='auto';dock.classList.toggle('right',x>innerWidth/2);
+  AI.pos={x,y};
+});
+function endBotDrag(e){
+  if(!botDrag||(e&&e.pointerId!==botDrag.id)) return;
+  const moved=botDrag.moved;botDrag=null;
+  const dock=document.getElementById('ai-dock');if(dock)dock.classList.remove('dragging');
+  if(moved){AI.dragged=true;setTimeout(()=>{AI.dragged=false},0);try{localStorage.setItem(STORE_KEY+'-botpos',JSON.stringify(AI.pos))}catch(_){}}
+}
+document.addEventListener('pointerup',endBotDrag);
+document.addEventListener('pointercancel',endBotDrag);
+window.addEventListener('resize',()=>{if(AI.pos&&!AI.open)renderAI();});
+/* eyes follow the pointer */
+let lookRaf=0;
+document.addEventListener('pointermove',e=>{
+  if(AI.open||lookRaf||e.pointerType==='touch') return;
+  lookRaf=requestAnimationFrame(()=>{lookRaf=0;const g=document.getElementById('bot-look');if(!g)return;
+    const r=g.closest('svg').getBoundingClientRect();const cx=r.left+r.width/2,cy=r.top+r.height*0.36;
+    const dx=e.clientX-cx,dy=e.clientY-cy,dist=Math.hypot(dx,dy)||1,k=Math.min(1,dist/240);
+    g.style.transform=`translate(${(dx/dist*3.2*k).toFixed(2)}px,${(dy/dist*2.4*k).toFixed(2)}px)`;});
+});
+const AI_ERR={rate_limited:'יותר מדי שאלות ברצף. כדאי לנסות שוב בעוד רגע.',session_expired:'צריך להתחבר מחדש ל-Claude.',refused:'לא אוכל לענות על זה. אפשר לנסח את השאלה אחרת.',empty_completion:'לא התקבלה תשובה. אפשר לנסח את השאלה אחרת.',prompt_too_large:'השיחה ארוכה מדי. כדאי להתחיל שיחה חדשה.',upstream_error:'התשובה נקטעה בגלל תקלה. אפשר לשאול שוב.'};
+async function ask(q,chipId){
+  if(AI.busy) return;
+  AI.turns.push({role:'user',content:q});
+  const local=chipId?localAnswer(chipId):null;const NOTE='תשובה מהירה מתוך הנתונים, בלי AI';
+  if(AI.sample===null||AI.blocked||AI.sample===undefined){
+    AI.turns.push({role:'assistant',content:local||(AI.sample===undefined?'רגע, אני עוד מתחבר. אפשר לנסות שוב בעוד כמה שניות.':'שיחה חופשית זמינה בגרסה המלאה.'),note:local?NOTE:'',local:true});renderAI();return;
+  }
+  AI.busy=true;AI.streaming='';AI.ctl=new AbortController();renderAI();
+  const hist=AI.turns.filter(t=>!t.local).slice(-10).map(t=>({role:t.role,content:t.content}));while(hist.length&&hist[0].role!=='user')hist.shift();
+  try{
+    const {text}=await AI.sample([{role:'user',content:aiRules()},...hist],{cache:false,modelTier:'quick',signal:AI.ctl.signal,
+      onText:({text})=>{AI.streaming=text;const el=document.getElementById('ai-stream');if(el){el.innerHTML=md(text);const b=document.getElementById('ai-body');if(b)b.scrollTop=b.scrollHeight;}}});
+    AI.turns.push({role:'assistant',content:text});
+  }catch(e){
+    const code=e&&e.code;
+    if(['not_granted','sampling_disabled','not_declared','capability_disabled','capability_removed'].includes(code)){AI.blocked=true;AI.turns.push({role:'assistant',content:local||'אין לי גישה ל-Claude בתצוגה הזו, אז אני עונה רק על השאלות המהירות.',note:local?NOTE:'',local:true});}
+    else if(code==='cancelled'){if(e.text)AI.turns.push({role:'assistant',content:e.text,note:'נעצר'});}
+    else AI.turns.push({role:'assistant',content:(e&&e.text)||AI_ERR[code]||AI_ERR.upstream_error,note:e&&e.text?(AI_ERR[code]||AI_ERR.upstream_error):'',local:!(e&&e.text)});
+  }finally{AI.busy=false;AI.streaming='';AI.ctl=null;renderAI();}
+}
+document.addEventListener('click',e=>{
+  const el=e.target.closest('[data-ai]');if(!el) return;const a=el.dataset.ai;
+  const seen=()=>{try{localStorage.setItem(STORE_KEY+'-hi','1')}catch(_){}};
+  if(a==='dismiss'){seen();AI.intro=false;renderAI();}
+  else if(a==='hush'){AI.say=null;renderAI();}
+  else if(a==='open'){if(AI.dragged)return;seen();AI.intro=false;AI.say=null;AI.open=true;renderAI();const i=document.getElementById('ai-input');if(i&&!i.disabled)i.focus();}
+  else if(a==='close'){AI.open=false;renderAI();}
+  else if(a==='clear'){if(AI.ctl)AI.ctl.abort();AI.turns=[];renderAI();}
+  else if(a==='stop'){if(AI.ctl)AI.ctl.abort();}
+  else if(a==='chip'){const c=[...CHIPS_STAFF,...CHIPS_PARTNER,...CHIPS_OWNER].find(x=>x.id===el.dataset.id);if(c)ask(c.q,c.id);}
+});
+document.addEventListener('submit',e=>{const f=e.target;if(f.dataset.form!=='ai')return;e.preventDefault();const i=document.getElementById('ai-input');const q=i.value.trim();if(!q||AI.busy)return;i.value='';ask(q,null);});
+document.addEventListener('keydown',e=>{if(e.target&&e.target.id==='ai-input'&&e.key==='Enter'&&!e.shiftKey){e.preventDefault();const f=e.target.closest('form');if(f)f.requestSubmit();}});
+if(window.claude&&typeof window.claude.use==='function'){window.claude.use('sample').then(s=>{AI.sample=s||null;if(AI.open)renderAI(true);}).catch(()=>{AI.sample=null;if(AI.open)renderAI(true);});}else{AI.sample=null;}
+
+render();renderAI();initCloud();
+})();
+</script>
+
+</html>
