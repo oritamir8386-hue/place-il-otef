@@ -1172,7 +1172,7 @@ function renderAI(keep){
     const p=botPos();
     box.innerHTML=`<div class="ai-dock ${p&&p.x>innerWidth/2?'right':''}" id="ai-dock" ${p?`style="left:${p.x}px;top:${p.y}px;bottom:auto"`:''}><button type="button" class="ai-char" data-ai="open" aria-label="פתיחת העוזר החכם (אפשר לגרור)" title="העוזר החכם · אפשר לגרור">${bot(84,true)}</button><span class="ai-label">שאלו אותי</span>
       ${AI.say?`<div class="ai-bubble" role="status"><div>${esc(AI.say)}</div><button type="button" class="x" data-ai="hush" aria-label="סגירת ההודעה">×</button></div>`
-        :AI.intro?`<div class="ai-bubble" role="status"><div><b>היי! אני העוזר החכם של הפרויקט.</b>אפשר לשאול אותי על העסקים, הטאלנטים והמשימות, ולגרור אותי לכל מקום במסך.</div><button type="button" class="x" data-ai="dismiss" aria-label="סגירת ההודעה">×</button></div>`:''}</div>`;
+        :AI.intro?`<div class="ai-bubble" role="status"><div><b>היי! אני העוזר החכם של הפרויקט.</b>אפשר לשאול אותי כל דבר על העסקים, הטאלנטים והמשימות, ולגרור אותי לכל מקום במסך.</div><button type="button" class="x" data-ai="dismiss" aria-label="סגירת ההודעה">×</button></div>`:''}</div>`;
     return;
   }
   const chips=isBizOwner()?CHIPS_OWNER:isPartner()?CHIPS_PARTNER:CHIPS_STAFF;const un=AI.sample===null||AI.blocked;
@@ -1180,13 +1180,13 @@ function renderAI(keep){
     <div class="ai-head">${bot(40,false)}<div class="who"><b>העוזר החכם</b><span class="sub">מכיר את כל הנתונים במערכת</span></div>
       ${AI.turns.length?'<button type="button" class="btn small" data-ai="clear">שיחה חדשה</button>':''}<button type="button" class="btn small" data-ai="close">סגירה</button></div>
     <div class="ai-body" id="ai-body">
-      ${!AI.turns.length?`<div class="ai-intro">אני מכיר את כל הנתונים על העסקים, הטאלנטים והמשימות.${un?'<br><br>בגרסה הציבורית אני עונה על השאלות המהירות מתוך הנתונים. שיחה חופשית איתי זמינה בגרסה המלאה.':''}</div>
+      ${!AI.turns.length?`<div class="ai-intro">אפשר לשאול אותי כל שאלה על העסקים, הטאלנטים והמשימות, או לבקש ממני לנסח עדכון.${un?'<br><br>כרגע אני עונה רק על השאלות המהירות מתוך הנתונים.':''}</div>
         <div class="ai-chips">${chips.filter(c=>!un||localAnswer(c.id)!==null).map(c=>`<button type="button" data-ai="chip" data-id="${c.id}">${c.q}</button>`).join('')}</div>`:''}
       ${AI.turns.map(t=>`<div class="msg ${t.role==='user'?'user':'bot'}">${t.role==='user'?esc(t.content):md(t.content)}${t.note?`<div class="note">${esc(t.note)}</div>`:''}</div>`).join('')}
       ${AI.busy?`<div class="msg bot" id="ai-stream">${AI.streaming?md(AI.streaming):'<span class="thinking">חושב...</span>'}</div>`:''}
     </div>
     <form class="ai-form" data-form="ai"><label for="ai-input" class="vh">שאלה לעוזר</label>
-      <textarea id="ai-input" rows="1" placeholder="${un?'שיחה חופשית זמינה בגרסה המלאה':'שאלו אותי משהו...'}" ${un?'disabled':''}>${esc(val)}</textarea>
+      <textarea id="ai-input" rows="1" placeholder="${un?'שיחה חופשית לא זמינה כרגע':'שאלו אותי משהו...'}" ${un?'disabled':''}>${esc(val)}</textarea>
       ${AI.busy?'<button type="button" class="btn" data-ai="stop">עצירה</button>':`<button type="submit" class="btn primary" ${un?'disabled':''}>שליחה</button>`}</form>
   </section>`;
   const body=document.getElementById('ai-body');if(body)body.scrollTop=body.scrollHeight;
@@ -1243,7 +1243,7 @@ async function ask(q,chipId){
   AI.turns.push({role:'user',content:q});
   const local=chipId?localAnswer(chipId):null;const NOTE='תשובה מהירה מתוך הנתונים, בלי AI';
   if(AI.sample===null||AI.blocked||AI.sample===undefined){
-    AI.turns.push({role:'assistant',content:local||(AI.sample===undefined?'רגע, אני עוד מתחבר. אפשר לנסות שוב בעוד כמה שניות.':'שיחה חופשית זמינה בגרסה המלאה.'),note:local?NOTE:'',local:true});renderAI();return;
+    AI.turns.push({role:'assistant',content:local||(AI.sample===undefined?'רגע, אני עוד מתחבר. אפשר לנסות שוב בעוד כמה שניות.':'שיחה חופשית לא זמינה כרגע.'),note:local?NOTE:'',local:true});renderAI();return;
   }
   AI.busy=true;AI.streaming='';AI.ctl=new AbortController();renderAI();
   const hist=AI.turns.filter(t=>!t.local).slice(-10).map(t=>({role:t.role,content:t.content}));while(hist.length&&hist[0].role!=='user')hist.shift();
@@ -1253,7 +1253,7 @@ async function ask(q,chipId){
     AI.turns.push({role:'assistant',content:text});
   }catch(e){
     const code=e&&e.code;
-    if(['not_granted','sampling_disabled','not_declared','capability_disabled','capability_removed'].includes(code)){AI.blocked=true;AI.turns.push({role:'assistant',content:local||'אין לי גישה ל-Claude בתצוגה הזו, אז אני עונה רק על השאלות המהירות.',note:local?NOTE:'',local:true});}
+    if(['not_granted','sampling_disabled','not_declared','capability_disabled','capability_removed'].includes(code)){AI.blocked=true;AI.turns.push({role:'assistant',content:local||'שיחה חופשית לא זמינה כרגע, אז אני עונה רק על השאלות המהירות.',note:local?NOTE:'',local:true});}
     else if(code==='cancelled'){if(e.text)AI.turns.push({role:'assistant',content:e.text,note:'נעצר'});}
     else AI.turns.push({role:'assistant',content:(e&&e.text)||AI_ERR[code]||AI_ERR.upstream_error,note:e&&e.text?(AI_ERR[code]||AI_ERR.upstream_error):'',local:!(e&&e.text)});
   }finally{AI.busy=false;AI.streaming='';AI.ctl=null;renderAI();}
@@ -1271,7 +1271,27 @@ document.addEventListener('click',e=>{
 });
 document.addEventListener('submit',e=>{const f=e.target;if(f.dataset.form!=='ai')return;e.preventDefault();const i=document.getElementById('ai-input');const q=i.value.trim();if(!q||AI.busy)return;i.value='';ask(q,null);});
 document.addEventListener('keydown',e=>{if(e.target&&e.target.id==='ai-input'&&e.key==='Enter'&&!e.shiftKey){e.preventDefault();const f=e.target.closest('form');if(f)f.requestSubmit();}});
-if(window.claude&&typeof window.claude.use==='function'){window.claude.use('sample').then(s=>{AI.sample=s||null;if(AI.open)renderAI(true);}).catch(()=>{AI.sample=null;if(AI.open)renderAI(true);});}else{AI.sample=null;}
+const AI_PROXY='https://place-il-ai.oritamir8386.workers.dev/';
+function proxySample(){
+  return async function(msgs,opts={}){
+    const system=msgs[0]&&msgs[0].role==='user'?msgs[0].content:'';
+    const messages=msgs.slice(1);let text='';let res;
+    try{res=await fetch(AI_PROXY,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({system,messages}),signal:opts.signal});}
+    catch(e){throw (e&&e.name==='AbortError')?{code:'cancelled',text}:{code:'upstream_error'};}
+    if(!res.ok){let c='upstream_error';try{const j=await res.json();if(j&&j.error==='rate_limited')c='rate_limited';}catch(_){}throw {code:c};}
+    const reader=res.body.getReader();const dec=new TextDecoder();let buf='';
+    try{
+      for(;;){const r=await reader.read();if(r.done)break;buf+=dec.decode(r.value,{stream:true});
+        let i;while((i=buf.indexOf('\n'))>=0){const line=buf.slice(0,i).trim();buf=buf.slice(i+1);
+          if(!line.startsWith('data:'))continue;let ev;try{ev=JSON.parse(line.slice(5));}catch(_){continue;}
+          if(ev.type==='content_block_delta'&&ev.delta&&ev.delta.type==='text_delta'){text+=ev.delta.text;if(opts.onText)opts.onText({text});}
+          else if(ev.type==='error'){throw {code:'upstream_error',text};}}}
+    }catch(e){if(e&&e.code)throw e;throw (e&&e.name==='AbortError')?{code:'cancelled',text}:{code:'upstream_error',text};}
+    if(!text.trim())throw {code:'empty_completion'};
+    return {text};
+  };
+}
+if(window.claude&&typeof window.claude.use==='function'){window.claude.use('sample').then(s=>{AI.sample=s||null;if(AI.open)renderAI(true);}).catch(()=>{AI.sample=null;if(AI.open)renderAI(true);});}else{AI.sample=AI_PROXY?proxySample():null;}
 
 render();renderAI();initCloud();
 })();
